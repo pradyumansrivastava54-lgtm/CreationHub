@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import OrdersFulfillmentTab from '../components/OrdersFulfillmentTab';
 import API from '../services/api';
 
 export default function AdminDashboard() {
@@ -43,6 +44,26 @@ export default function AdminDashboard() {
   // Edit Modal State
   const [editingProduct, setEditingProduct] = useState(null);
 
+  // Customer History State
+  const [selectedUserForHistory, setSelectedUserForHistory] = useState(null);
+  const [userHistory, setUserHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const handleViewUserHistory = async (userObj) => {
+    setSelectedUserForHistory(userObj);
+    setHistoryLoading(true);
+    setUserHistory([]);
+    try {
+      const response = await API.get(`/api/admin/users/${userObj.id}/history`);
+      setUserHistory(response.data);
+    } catch (err) {
+      console.error('Failed to fetch user history:', err);
+      alert('Failed to load customer history logs.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const [actionLoading, setActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -83,7 +104,7 @@ export default function AdminDashboard() {
   const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
     try {
-      const response = await API.get('/api/orders/admin/all');
+      const response = await API.get('/api/admin/orders');
       setOrders(response.data);
     } catch (err) {
       console.error('Failed to fetch orders:', err);
@@ -204,7 +225,7 @@ export default function AdminDashboard() {
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      await API.put(`/api/orders/${orderId}/status`, { status: newStatus });
+      await API.put(`/api/admin/orders/${orderId}/status`, { status: newStatus });
       fetchOrders();
       fetchAnalytics();
     } catch (err) {
@@ -227,6 +248,8 @@ export default function AdminDashboard() {
       alert(err.response?.data?.message || 'Failed to update product details.');
     }
   };
+
+  const hasPlacedOrders = orders.some(o => (o.orderStatus || 'PLACED') === 'PLACED');
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -279,13 +302,16 @@ export default function AdminDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`h-full border-b-2 font-medium text-sm flex items-center shrink-0 cursor-pointer transition-all ${
+              className={`h-full border-b-2 font-medium text-sm flex items-center shrink-0 cursor-pointer transition-all relative ${
                 activeTab === tab.id
                   ? 'border-primary text-primary font-bold'
                   : 'border-transparent text-text-secondary hover:text-text-primary'
               }`}
             >
               {tab.label}
+              {tab.id === 'orders' && hasPlacedOrders && (
+                <span className="bg-red-500 rounded-full absolute top-1 right-2 w-2.5 h-2.5 animate-pulse" />
+              )}
             </button>
           ))}
         </div>
@@ -476,81 +502,7 @@ export default function AdminDashboard() {
 
         {/* TAB 3: ORDERS FULFILLMENT */}
         {activeTab === 'orders' && (
-          <div className="space-y-6 animate-slide-up">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-text-primary">Fulfillment & Order History</h2>
-              <button
-                onClick={fetchOrders}
-                className="px-4 py-2 bg-surface-input border border-border hover:border-primary/50 rounded-xl text-xs font-semibold text-text-primary transition-all cursor-pointer"
-              >
-                Refresh Orders
-              </button>
-            </div>
-
-            {ordersLoading ? (
-              <div className="py-20 flex justify-center">
-                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="bg-surface-card border border-border p-12 text-center rounded-2xl">
-                <p className="text-text-secondary text-base">No orders placed on the system yet.</p>
-              </div>
-            ) : (
-              <div className="bg-surface-card border border-border rounded-2xl overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-border bg-surface text-text-muted text-xs uppercase font-bold tracking-wider">
-                        <th className="px-6 py-4">Order ID</th>
-                        <th className="px-6 py-4">Customer</th>
-                        <th className="px-6 py-4">Date</th>
-                        <th className="px-6 py-4">Total Amount</th>
-                        <th className="px-6 py-4">Fulfillment Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border text-sm">
-                      {orders.map((o) => (
-                        <tr key={o.id} className="hover:bg-surface/30 transition-colors">
-                          <td className="px-6 py-4 text-text-secondary font-mono">#{o.id}</td>
-                          <td className="px-6 py-4">
-                            <p className="text-text-primary font-bold">{o.user?.username}</p>
-                            <p className="text-text-muted text-xs">{o.user?.email}</p>
-                          </td>
-                          <td className="px-6 py-4 text-text-secondary">
-                            {new Date(o.orderDate).toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 text-primary font-bold">
-                            ₹{Number(o.totalAmount).toFixed(2)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <select
-                              value={o.status}
-                              onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-surface-input text-text-primary cursor-pointer transition-colors focus:border-primary ${
-                                o.status === 'PAID'
-                                  ? 'text-success border-success/30 bg-success-bg/10'
-                                  : o.status === 'SHIPPED'
-                                  ? 'text-cyan-400 border-cyan-400/30 bg-cyan-400/5'
-                                  : o.status === 'DELIVERED'
-                                  ? 'text-teal-400 border-teal-400/30 bg-teal-400/5'
-                                  : 'text-amber-500 border-amber-500/30 bg-amber-500/5'
-                              }`}
-                            >
-                              <option value="PENDING">PENDING</option>
-                              <option value="PAID">PAID</option>
-                              <option value="SHIPPED">SHIPPED</option>
-                              <option value="DELIVERED">DELIVERED</option>
-                              <option value="FAILED">FAILED</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
+          <OrdersFulfillmentTab orders={orders} ordersLoading={ordersLoading} fetchOrders={fetchOrders} handleUpdateOrderStatus={handleUpdateOrderStatus} />
         )}
 
         {/* TAB 4: ADD NEW PRODUCT */}
@@ -710,18 +662,26 @@ export default function AdminDashboard() {
                             {u.email}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-surface-input text-text-primary cursor-pointer transition-colors focus:border-primary ${
-                                u.role === 'ROLE_ADMIN'
-                                  ? 'text-primary border-primary/30 bg-primary/5'
-                                  : 'text-text-secondary border-border bg-surface'
-                              }`}
-                            >
-                              <option value="ROLE_USER">USER</option>
-                              <option value="ROLE_ADMIN">ADMIN</option>
-                            </select>
+                            <div className="flex items-center justify-end gap-3">
+                              <button
+                                onClick={() => handleViewUserHistory(u)}
+                                className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                              >
+                                View History
+                              </button>
+                              <select
+                                value={u.role}
+                                onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border border-border bg-surface-input text-text-primary cursor-pointer transition-colors focus:border-primary ${
+                                  u.role === 'ROLE_ADMIN'
+                                    ? 'text-primary border-primary/30 bg-primary/5'
+                                    : 'text-text-secondary border-border bg-surface'
+                                }`}
+                              >
+                                <option value="ROLE_USER">USER</option>
+                                <option value="ROLE_ADMIN">ADMIN</option>
+                              </select>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -823,6 +783,135 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Customer Purchase History Modal */}
+      {selectedUserForHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Blurred Backdrop */}
+          <div 
+            onClick={() => setSelectedUserForHistory(null)}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity duration-300"
+          />
+
+          {/* Modal Content */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden z-10 flex flex-col animate-scale-up">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Customer Purchase History</h3>
+                <p className="text-xs text-slate-500 mt-1">Viewing order trail for <span className="font-bold text-indigo-600">@{selectedUserForHistory.username}</span> ({selectedUserForHistory.email})</p>
+              </div>
+              <button 
+                onClick={() => setSelectedUserForHistory(null)}
+                className="p-2 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-grow space-y-6 max-h-[60vh]">
+              {historyLoading ? (
+                <div className="py-16 flex flex-col items-center justify-center">
+                  <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-slate-400 mt-3 font-semibold tracking-wide uppercase">Retrieving Order Logs...</p>
+                </div>
+              ) : userHistory.length === 0 ? (
+                <div className="text-center py-16 bg-slate-50 rounded-2xl border border-slate-100 p-8">
+                  <svg className="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                  </svg>
+                  <p className="text-sm font-bold text-slate-700">No Orders Placed Yet</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">This customer account has not initialized any online purchases on the storefront.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Top Metrics Row */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Orders Placed</p>
+                      <p className="text-2xl font-black text-slate-800 mt-1">{userHistory.length}</p>
+                    </div>
+                    <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl">
+                      <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Lifetime Value (LTV)</p>
+                      <p className="text-2xl font-black text-indigo-600 mt-1">
+                        ₹{userHistory.reduce((sum, o) => sum + (o.totalOrderCost || 0), 0).toLocaleString('en-IN', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Vertical History Stream */}
+                  <div className="space-y-4 pt-2">
+                    <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider">Historical Order Stream</h4>
+                    <div className="space-y-3">
+                      {userHistory.map((o) => (
+                        <div key={o.orderId} className="p-4 border border-slate-100 bg-white hover:border-slate-200 rounded-2xl shadow-xs transition-all space-y-3">
+                          
+                          {/* Top Row: Order ID & Date */}
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">#{o.orderId}</span>
+                              <span className="text-[11px] text-slate-400 ml-2 font-medium">{new Date(o.executionTimestamp).toLocaleString()}</span>
+                            </div>
+                            <span className="text-sm font-black text-slate-800">
+                              ₹{Number(o.totalOrderCost).toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
+                            </span>
+                          </div>
+
+                          {/* Middle Row: Products */}
+                          <div className="p-3 bg-slate-50/80 border border-slate-100 rounded-xl">
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Purchased Products</p>
+                            <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                              {o.productNames && o.productNames.length > 0 
+                                ? o.productNames.join(', ') 
+                                : 'No products found'}
+                            </p>
+                          </div>
+
+                          {/* Bottom Row: Status Badges */}
+                          <div className="flex gap-2">
+                            {/* Payment Badge */}
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                              o.paymentStatus === 'PAID'
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                : 'bg-amber-50 text-amber-600 border-amber-100'
+                            }`}>
+                              PAYMENT: {o.paymentStatus || 'PENDING'}
+                            </span>
+                            {/* Fulfillment Status Badge */}
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                              o.orderStatus === 'DELIVERED'
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                : o.orderStatus === 'SHIPPED'
+                                ? 'bg-cyan-50 text-cyan-600 border-cyan-100'
+                                : o.orderStatus === 'PROCESSING'
+                                ? 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                : 'bg-amber-50 text-amber-600 border-amber-100'
+                            }`}>
+                              DELIVERY: {o.orderStatus || 'PLACED'}
+                            </span>
+                          </div>
+
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
           </div>
         </div>
       )}

@@ -9,9 +9,20 @@ export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState([]);
   const [toastMessage, setToastMessage] = useState(null);
 
+  const showToast = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const fetchCart = useCallback(async () => {
     if (!isAuthenticated) {
-      setCartItems([]);
+      try {
+        const storedCart = localStorage.getItem('guest_cart');
+        setCartItems(storedCart ? JSON.parse(storedCart) : []);
+      } catch (e) {
+        console.error('Failed to parse guest cart:', e);
+        setCartItems([]);
+      }
       return;
     }
     try {
@@ -22,16 +33,82 @@ export function CartProvider({ children }) {
     }
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+  const mergeGuestCart = useCallback(async () => {
+    try {
+      const storedCart = localStorage.getItem('guest_cart');
+      if (!storedCart) return;
+      const guestItems = JSON.parse(storedCart);
+      if (guestItems.length === 0) return;
 
-  const showToast = (message) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
+      const mergePayload = guestItems.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity
+      }));
+
+      const response = await API.post('/api/cart/merge', mergePayload);
+      localStorage.removeItem('guest_cart');
+      setCartItems(response.data);
+      showToast('Guest cart successfully merged with your account.');
+    } catch (err) {
+      console.error('Failed to merge guest cart:', err);
+      showToast('Failed to merge guest cart.');
+    }
+  }, []);
+
+  // Automatic merge trigger on login transition
+  useEffect(() => {
+    if (isAuthenticated) {
+      const storedCart = localStorage.getItem('guest_cart');
+      if (storedCart && JSON.parse(storedCart).length > 0) {
+        mergeGuestCart();
+      } else {
+        fetchCart();
+      }
+    } else {
+      fetchCart();
+    }
+  }, [isAuthenticated, fetchCart, mergeGuestCart]);
 
   const addToCart = async (productId, quantity = 1) => {
+    if (!isAuthenticated) {
+      try {
+        const response = await API.get(`/api/products/${productId}`);
+        const product = response.data;
+
+        const storedCart = localStorage.getItem('guest_cart');
+        let guestItems = storedCart ? JSON.parse(storedCart) : [];
+
+        const existingItemIndex = guestItems.findIndex(item => item.product.id === productId);
+        if (existingItemIndex > -1) {
+          const newQty = guestItems[existingItemIndex].quantity + quantity;
+          if (newQty > product.stockQuantity) {
+            showToast('Sorry, requested item quantity exceeds warehouse availability.');
+            return false;
+          }
+          guestItems[existingItemIndex].quantity = newQty;
+        } else {
+          if (quantity > product.stockQuantity) {
+            showToast('Sorry, requested item quantity exceeds warehouse availability.');
+            return false;
+          }
+          guestItems.push({
+            id: `guest_${productId}`,
+            product,
+            quantity
+          });
+        }
+
+        localStorage.setItem('guest_cart', JSON.stringify(guestItems));
+        setCartItems(guestItems);
+        showToast('Item added to cart.');
+        return true;
+      } catch (err) {
+        console.error('Guest add to cart failed:', err);
+        showToast('Failed to add to cart.');
+        return false;
+      }
+    }
+
     try {
       await API.post('/api/cart/add', { productId, quantity });
       fetchCart();
@@ -49,6 +126,29 @@ export function CartProvider({ children }) {
 
   const updateQuantity = async (itemId, newQuantity) => {
     if (newQuantity < 1) return false;
+    if (!isAuthenticated) {
+      try {
+        const storedCart = localStorage.getItem('guest_cart');
+        let guestItems = storedCart ? JSON.parse(storedCart) : [];
+        const itemIndex = guestItems.findIndex(item => item.id === itemId);
+        if (itemIndex > -1) {
+          const item = guestItems[itemIndex];
+          if (newQuantity > item.product.stockQuantity) {
+            showToast('Sorry, requested item quantity exceeds warehouse availability.');
+            return false;
+          }
+          guestItems[itemIndex].quantity = newQuantity;
+          localStorage.setItem('guest_cart', JSON.stringify(guestItems));
+          setCartItems(guestItems);
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error('Failed to update guest quantity:', e);
+        return false;
+      }
+    }
+
     try {
       await API.put(`/api/cart/${itemId}`, { quantity: newQuantity });
       fetchCart();
@@ -65,6 +165,20 @@ export function CartProvider({ children }) {
   };
 
   const removeFromCart = async (itemId) => {
+    if (!isAuthenticated) {
+      try {
+        const storedCart = localStorage.getItem('guest_cart');
+        let guestItems = storedCart ? JSON.parse(storedCart) : [];
+        guestItems = guestItems.filter(item => item.id !== itemId);
+        localStorage.setItem('guest_cart', JSON.stringify(guestItems));
+        setCartItems(guestItems);
+        return true;
+      } catch (e) {
+        console.error('Failed to remove guest item:', e);
+        return false;
+      }
+    }
+
     try {
       await API.delete(`/api/cart/${itemId}`);
       fetchCart();

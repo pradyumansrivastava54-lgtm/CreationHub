@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { X, Star, ShoppingBag, CheckCircle, AlertTriangle, ShieldCheck, RefreshCw, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function QuickViewModal({ product, onClose }) {
+  const navigate = useNavigate();
   const { cartItems, addToCart, updateQuantity } = useCart();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -234,14 +236,26 @@ export default function QuickViewModal({ product, onClose }) {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => addToCart(product.id, 1)}
-                  disabled={product.stockQuantity === 0}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-sm font-semibold rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer shadow-lg shadow-indigo-600/20 transition-all"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
-                </button>
+                <div className="flex-1 flex items-center gap-2">
+                  <button
+                    onClick={() => addToCart(product.id, 1)}
+                    disabled={product.stockQuantity === 0}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-sm font-semibold rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer shadow-lg shadow-indigo-600/20 transition-all"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      addToCart(product.id, 1);
+                      navigate('/cart');
+                    }}
+                    disabled={product.stockQuantity === 0}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white text-sm font-semibold rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer shadow-lg shadow-amber-500/20 transition-all"
+                  >
+                    Buy Now
+                  </button>
+                </div>
               )}
             </div>
 

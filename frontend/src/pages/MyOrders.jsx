@@ -106,19 +106,6 @@ export default function MyOrders() {
                     <span className="text-base font-medium text-text-secondary">Total Paid:</span>
                     <span className="text-xl font-extrabold text-primary">₹{Number(order.totalAmount).toFixed(2)}</span>
                   </div>
-                  <div>
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
-                      order.status === 'PAID' || order.status === 'SUCCESS'
-                        ? 'bg-success-bg/25 text-success'
-                        : order.status === 'SHIPPED'
-                        ? 'bg-cyan-500/10 text-cyan-400'
-                        : order.status === 'DELIVERED'
-                        ? 'bg-teal-500/10 text-teal-400'
-                        : 'bg-amber-500/10 text-amber-500'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </div>
                 </div>
 
                 {/* Items Purchased list */}
@@ -147,6 +134,67 @@ export default function MyOrders() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                {/* Flipkart-Style Tracking Stepper */}
+                <div className="pt-6 border-t border-border mt-4">
+                  <p className="text-xs font-bold text-text-muted uppercase tracking-wider mb-6">Order Tracking</p>
+                  <div className="relative flex items-center justify-between w-full px-2 sm:px-6">
+                    {/* Background Line */}
+                    <div className="absolute left-6 right-6 top-4 -translate-y-1/2 h-1 bg-slate-100 -z-10 rounded-full" />
+                    
+                    {/* Active progress bar line fill */}
+                    <div 
+                      className="absolute left-6 top-4 -translate-y-1/2 h-1 bg-indigo-600 -z-10 rounded-full transition-all duration-500" 
+                      style={{ 
+                        width: `${
+                          ((order.orderStatus === 'DELIVERED' ? 3 : order.orderStatus === 'SHIPPED' ? 2 : order.orderStatus === 'PROCESSING' ? 1 : 0) / 3) * 85
+                        }%` 
+                      }}
+                    />
+
+                    {['Placed', 'Processing', 'Shipped', 'Delivered'].map((label, index) => {
+                      const currentStep = order.orderStatus === 'DELIVERED' ? 3 : order.orderStatus === 'SHIPPED' ? 2 : order.orderStatus === 'PROCESSING' ? 1 : 0;
+                      const isCompleted = index <= currentStep;
+                      const isActive = index === currentStep;
+
+                      return (
+                        <div key={label} className="flex flex-col items-center relative z-10 shrink-0">
+                          {/* Circle Node */}
+                          <div 
+                            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                              isActive 
+                                ? 'bg-indigo-600 border-indigo-600 text-white animate-pulse'
+                                : isCompleted
+                                ? 'bg-indigo-50 border-indigo-600 text-indigo-600'
+                                : 'bg-white border-slate-200 text-slate-400'
+                            }`}
+                          >
+                            {isCompleted ? (
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <span className="text-xs font-bold">{index + 1}</span>
+                            )}
+                          </div>
+
+                          {/* Label Stacked Underneath */}
+                          <span 
+                            className={`text-[11px] font-bold mt-2 tracking-wide transition-all ${
+                              isActive
+                                ? 'text-indigo-600'
+                                : isCompleted
+                                ? 'text-slate-700 font-semibold'
+                                : 'text-slate-400 font-medium'
+                            }`}
+                          >
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

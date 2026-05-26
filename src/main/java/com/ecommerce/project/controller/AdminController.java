@@ -1,6 +1,8 @@
 package com.ecommerce.project.controller;
 
+import com.ecommerce.project.model.Order;
 import com.ecommerce.project.model.User;
+import com.ecommerce.project.repository.ProductRepository;
 import com.ecommerce.project.repository.UserRepository;
 import com.ecommerce.project.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,6 +25,9 @@ public class AdminController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ProductRepository productRepository;
 
     /**
      * GET /api/admin/analytics
@@ -81,5 +88,78 @@ public class AdminController {
         userRepository.save(user);
 
         return ResponseEntity.ok(user);
+    }
+
+    /**
+     * GET /api/admin/orders
+     * Restricted to ROLE_ADMIN only.
+     * Performs optimized relational fetch of all customer orders.
+     */
+    @GetMapping("/orders")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<com.ecommerce.project.model.Order>> getAllOrders() {
+        return ResponseEntity.ok(orderService.getAllOrders());
+    }
+
+    /**
+     * PUT /api/admin/orders/{orderId}/status
+     * Restricted to ROLE_ADMIN only.
+     * Safely updates the order's fulfillment lifecycle state.
+     */
+    @PutMapping("/orders/{orderId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<com.ecommerce.project.model.Order> updateOrderStatus(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, String> payload) {
+        String status = payload.get("status");
+        if (status == null || status.trim().isEmpty()) {
+            throw new IllegalArgumentException("status field is required");
+        }
+        com.ecommerce.project.model.Order updated = orderService.updateOrderStatus(orderId, status);
+        return ResponseEntity.ok(updated);
+    }
+
+    /**
+     * GET /api/admin/users/{userId}/history
+     * Restricted to ROLE_ADMIN only.
+     * Relational JPQL query to retrieve a specific customer's purchase history.
+     */
+    @GetMapping("/users/{userId}/history")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Map<String, Object>>> getUserOrderHistory(@PathVariable Long userId) {
+        List<Order> orders = userRepository.findOrdersByUserId(userId);
+        List<Map<String, Object>> history = new ArrayList<>();
+        for (Order o : orders) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("orderId", o.getId());
+            
+            List<String> productNames = new ArrayList<>();
+            if (o.getItems() != null) {
+                for (com.ecommerce.project.model.OrderItem item : o.getItems()) {
+                    if (item.getProduct() != null) {
+                        productNames.add(item.getProduct().getName());
+                    }
+                }
+            }
+            map.put("productNames", productNames);
+            map.put("totalOrderCost", o.getTotalAmount());
+            map.put("executionTimestamp", o.getOrderDate());
+            map.put("paymentStatus", o.getPaymentStatus());
+            map.put("orderStatus", o.getOrderStatus());
+            history.add(map);
+        }
+        return ResponseEntity.ok(history);
+    }
+
+    /**
+     * GET /api/admin/products/low-stock
+     * Restricted to ROLE_ADMIN only.
+     * Dynamically fetches products with stock quantity below threshold of 5.
+     */
+    @GetMapping("/products/low-stock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<com.ecommerce.project.model.Product>> getLowStockProducts() {
+        List<com.ecommerce.project.model.Product> lowStock = productRepository.findByStockQuantityLessThan(5);
+        return ResponseEntity.ok(lowStock);
     }
 }

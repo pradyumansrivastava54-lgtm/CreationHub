@@ -41,7 +41,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const from = location.state?.from?.pathname || '/';
+  const from = (typeof location.state?.from === 'object' ? location.state?.from?.pathname : location.state?.from) || '/';
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

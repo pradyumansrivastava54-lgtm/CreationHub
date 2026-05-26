@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 import API from '../services/api';
 
 export default function Cart() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const { cartItems, updateQuantity, removeFromCart, totalCartItems, fetchCart } = useCart();
   const navigate = useNavigate();
 
@@ -33,35 +33,12 @@ export default function Cart() {
     });
   };
 
-  const handleProceedToCheckout = async () => {
-    setIsCheckingOut(true);
-    setCheckoutError(null);
-    try {
-      const response = await API.post('/api/orders/create');
-      const orderData = response.data;
-      if (!orderData || !orderData.razorpayOrderId) {
-        setCheckoutError('Failed to create order. Please try again.');
-        setIsCheckingOut(false);
-        return;
-      }
-
-      console.log("DEBUG PAYLOAD - Key ID:", 'rzp_test_SrXIEWuRHRmyMx');
-      console.log("DEBUG PAYLOAD - Order ID from Backend:", orderData.razorpayOrderId);
-
-      if (!orderData.razorpayOrderId || orderData.razorpayOrderId.trim() === "" || orderData.razorpayOrderId === "FAILED_TO_GENERATE_ORDER_ID") {
-        alert("System Error: Backend returned an empty or missing Razorpay Order ID. Please check your IntelliJ console logs for onboarding verification issues!");
-        setIsCheckingOut(false);
-        return;
-      }
-
-      // Navigate securely to custom replication hosted checkout panel
-      navigate('/checkout', { state: { orderData } });
-
-    } catch (err) {
-      console.error('Order creation failed:', err);
-      setCheckoutError(err.response?.data?.message || 'An error occurred creating your order.');
-      setIsCheckingOut(false);
+  const handleProceedToCheckout = () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: '/cart', proceedToCheckout: true } });
+      return;
     }
+    navigate('/checkout');
   };
 
   return (
@@ -79,18 +56,30 @@ export default function Cart() {
               <span className="text-lg font-bold text-text-primary hidden sm:block">Back to Store</span>
             </Link>
             <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-semibold text-primary">
-                    {user?.username?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="text-sm">
-                  <p className="text-text-primary font-medium">{user?.username}</p>
-                  <p className="text-text-muted text-xs">{user?.role?.replace('ROLE_', '')}</p>
-                </div>
-              </div>
-              <button onClick={handleLogout} className="px-3 py-2 text-sm font-medium text-danger hover:bg-danger-bg rounded-lg cursor-pointer transition-colors">Logout</button>
+              {user ? (
+                <>
+                  <div className="hidden sm:flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-semibold text-primary">
+                        {user.username?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="text-sm">
+                      <p className="text-text-primary font-medium">{user.username}</p>
+                      <p className="text-text-muted text-xs">{user.role?.replace('ROLE_', '')}</p>
+                    </div>
+                  </div>
+                  <button onClick={handleLogout} className="px-3 py-2 text-sm font-medium text-danger hover:bg-danger-bg rounded-lg cursor-pointer transition-colors">Logout</button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  state={{ from: '/cart' }}
+                  className="px-4 py-2 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50/50 bg-white rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95 animate-fade-in"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         </div>

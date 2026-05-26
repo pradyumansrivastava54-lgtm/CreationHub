@@ -10,6 +10,7 @@ import ProductDetails from './pages/ProductDetails';
 import MyOrders from './pages/MyOrders';
 import AdminDashboard from './pages/AdminDashboard';
 import Checkout from './pages/Checkout';
+import Wishlist from './pages/Wishlist';
 import { CartProvider } from './context/CartContext';
 
 function PublicRoute({ children }) {
@@ -54,19 +55,15 @@ function AppRoutes() {
 
       <Route
         path="/"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
+        element={<Home />}
       />
       <Route
         path="/cart"
-        element={
-          <ProtectedRoute>
-            <Cart />
-          </ProtectedRoute>
-        }
+        element={<Cart />}
+      />
+      <Route
+        path="/wishlist"
+        element={<Wishlist />}
       />
       <Route
         path="/checkout"
@@ -94,14 +91,18 @@ function AppRoutes() {
       />
       <Route
         path="/product/:id"
+        element={<ProductDetails />}
+      />
+      <Route
+        path="/orders"
         element={
           <ProtectedRoute>
-            <ProductDetails />
+            <MyOrders />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/orders"
+        path="/order-success"
         element={
           <ProtectedRoute>
             <MyOrders />

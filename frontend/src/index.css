@@ -81,3 +81,16 @@ input:focus, button:focus-visible {
   animation: slide-up 0.3s ease-out;
 }
 
+/* Hide scrollbar — used for horizontal category pill strip on mobile */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Smooth scroll globally */
+html {
+  scroll-behavior: smooth;
+}

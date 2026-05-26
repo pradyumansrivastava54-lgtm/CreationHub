@@ -26,6 +26,18 @@ public class Order {
     @Column(nullable = false)
     private String status; // PENDING, PAID, FAILED
 
+    private String paymentStatus;
+
+    private String orderStatus;
+
+    /** Shipping address snapshot — captured at time of order placement */
+    private String shippingFullName;
+
+    @Column(length = 600)
+    private String shippingAddress;
+
+    private String shippingPhone;
+
     private String transactionId;
 
     private String razorpayOrderId;
@@ -48,6 +60,9 @@ public class Order {
     private List<OrderItem> items = new ArrayList<>();
 
     public Order() {
+        this.paymentStatus = "PENDING";
+        this.orderStatus = "PLACED";
+        this.status = "PENDING";
         this.orderDate = LocalDateTime.now();
     }
 
@@ -55,6 +70,8 @@ public class Order {
         this.user = user;
         this.totalAmount = totalAmount;
         this.status = status;
+        this.paymentStatus = status;
+        this.orderStatus = "PLACED";
         this.orderDate = LocalDateTime.now();
     }
 
@@ -158,4 +175,39 @@ public class Order {
     public void setItems(List<OrderItem> items) {
         this.items = items;
     }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public String getOrderStatus() {
+        return orderStatus;
+    }
+
+    public void setOrderStatus(String orderStatus) {
+        this.orderStatus = orderStatus;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("username")
+    public String getCustomerUsername() {
+        return user != null ? user.getUsername() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("email")
+    public String getCustomerEmail() {
+        return user != null ? user.getEmail() : null;
+    }
+
+    public String getShippingFullName() { return shippingFullName; }
+    public void setShippingFullName(String shippingFullName) { this.shippingFullName = shippingFullName; }
+
+    public String getShippingAddress() { return shippingAddress; }
+    public void setShippingAddress(String shippingAddress) { this.shippingAddress = shippingAddress; }
+
+    public String getShippingPhone() { return shippingPhone; }
+    public void setShippingPhone(String shippingPhone) { this.shippingPhone = shippingPhone; }
 }

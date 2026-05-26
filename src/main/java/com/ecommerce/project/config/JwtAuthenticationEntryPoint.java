@@ -2,7 +2,6 @@ package com.ecommerce.project.config;
 
 import com.ecommerce.project.exception.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -32,13 +31,11 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
-                "Unauthorized",
-                "You need to login to access this resource",
-                request.getServletPath()
+                "You need to login to access this resource"
         );
 
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
         mapper.writeValue(response.getOutputStream(), errorResponse);
     }
 }
+

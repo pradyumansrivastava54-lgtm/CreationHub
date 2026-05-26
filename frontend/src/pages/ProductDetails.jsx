@@ -100,12 +100,31 @@ export default function ProductDetails() {
                 )}
               </Link>
 
-              {user?.role === 'ROLE_ADMIN' && (
+              {user ? (
+                <>
+                  {user.role === 'ROLE_ADMIN' && (
+                    <Link
+                      to="/admin"
+                      className="px-3 py-2 text-sm font-semibold text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-1.5 transition-all"
+                    >
+                      Admin Console
+                    </Link>
+                  )}
+                  <div className="hidden sm:flex items-center gap-2">
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-semibold text-primary">
+                        {user.username?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
                 <Link
-                  to="/admin"
-                  className="px-3 py-2 text-sm font-semibold text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-1.5 transition-all"
+                  to="/login"
+                  state={{ from: `/product/${id}` }}
+                  className="px-4 py-2 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50/50 bg-white rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95 animate-fade-in"
                 >
-                  Admin Console
+                  Sign In
                 </Link>
               )}
             </div>
@@ -174,7 +193,11 @@ export default function ProductDetails() {
 
             {/* Add to Cart Layout Box */}
             <div className="mt-8 pt-8 border-t border-border space-y-6">
-              {cartItem ? (
+              {user?.role === 'ROLE_ADMIN' ? (
+                <div className="flex items-center justify-center py-4 px-6 bg-slate-100 border border-slate-200 text-slate-400 text-sm font-bold rounded-2xl shadow-inner select-none tracking-wide text-center">
+                  Admin View Only
+                </div>
+              ) : cartItem ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between bg-surface p-4 rounded-2xl border border-border">
                     <div>
@@ -239,6 +262,18 @@ export default function ProductDetails() {
                     </svg>
                     {product.stockQuantity === 0 ? 'Out of Stock' : 'Add to Cart'}
                   </button>
+
+                  {product.stockQuantity > 0 && (
+                    <button
+                      onClick={async () => {
+                        await addToCart(product.id, quantity);
+                        navigate('/cart');
+                      }}
+                      className="flex-1 py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    >
+                      Buy Now
+                    </button>
+                  )}
                 </div>
               )}
             </div>

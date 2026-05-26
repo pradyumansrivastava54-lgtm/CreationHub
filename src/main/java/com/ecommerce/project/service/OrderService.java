@@ -3,6 +3,7 @@ package com.ecommerce.project.service;
 import com.ecommerce.project.exception.InsufficientStockException;
 import com.ecommerce.project.exception.ResourceNotFoundException;
 import com.ecommerce.project.model.*;
+import com.ecommerce.project.repository.AddressRepository;
 import com.ecommerce.project.repository.CartItemRepository;
 import com.ecommerce.project.repository.OrderRepository;
 import com.ecommerce.project.repository.ProductRepository;
@@ -24,6 +25,9 @@ import java.util.UUID;
 public class OrderService {
 
     @Autowired
+    private AddressRepository addressRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -42,7 +46,7 @@ public class OrderService {
     private String razorpayKeySecret;
 
     @Transactional
-    public Order createOrder(String username) {
+    public Order createOrder(String username, Long addressId) {
         // Load user
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
@@ -88,6 +92,16 @@ public class OrderService {
         } catch (Exception e) {
             System.out.println("CRITICAL DEPLOYMENT ALERT: Razorpay API failed to generate order ID. Check Dashboard Onboarding Status!");
             order.setRazorpayOrderId("order_mock_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14));
+        }
+
+        if (addressId != null) {
+            addressRepository.findById(addressId).ifPresent(addr -> {
+                order.setShippingFullName(addr.getFullName());
+                order.setShippingPhone(addr.getPhoneNumber());
+                order.setShippingAddress(
+                        addr.getAddressLine() + ", " + addr.getCity() + ", " +
+                        addr.getState() + " - " + addr.getPincode());
+            });
         }
 
         // Build OrderItems (Do NOT deduct stock or clear cart yet!)
@@ -140,6 +154,7 @@ public class OrderService {
 
             if (isValid || (razorpayPaymentId != null && razorpayPaymentId.startsWith("pay_mock_"))) {
                 order.setStatus("PAID");
+                order.setPaymentStatus("PAID");
                 order.setRazorpayPaymentId(razorpayPaymentId != null ? razorpayPaymentId : "pay_mock_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14));
                 order.setRazorpaySignature(razorpaySignature != null ? razorpaySignature : "sig_mock_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14));
                 order.setTransactionId(order.getRazorpayPaymentId()); // Also use paymentId as transactionId
@@ -200,6 +215,7 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
         order.setStatus(status);
+        order.setOrderStatus(status);
         return orderRepository.save(order);
     }
 
@@ -249,6 +265,7 @@ public class OrderService {
 
         // Mark as PAID
         order.setStatus("PAID");
+        order.setPaymentStatus("PAID");
         order.setTransactionId("sim_pay_" + UUID.randomUUID().toString().substring(0, 12));
         order.setRazorpayPaymentId("sim_" + UUID.randomUUID().toString().substring(0, 12));
 
@@ -268,5 +285,74 @@ public class OrderService {
         cartItemRepository.deleteAll(cartItems);
 
         return orderRepository.save(order);
+    }
+
+    @Transactional
+    public Order placeOrder(String username, Long addressId, String paymentStatus) {
+        // 1. Resolve the authenticated User entity
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        // 2. Load active cart (locks/gets contents)
+        List<CartItem> cartItems = cartItemRepository.findByUser(user);
+        if (cartItems.isEmpty()) {
+            throw new IllegalStateException("Cart is empty");
+        }
+
+        java.math.BigDecimal totalAmount = java.math.BigDecimal.ZERO;
+
+        // 3. Verify stock one final time and compute total
+        for (CartItem item : cartItems) {
+            Product product = item.getProduct();
+            if (item.getQuantity() > product.getStockQuantity()) {
+                throw new InsufficientStockException(product.getId(),
+                        "Product " + product.getName() + " does not have enough stock. Requested: " + item.getQuantity()
+                                + ", Available: " + product.getStockQuantity());
+            }
+            java.math.BigDecimal itemTotal = product.getPrice().multiply(java.math.BigDecimal.valueOf(item.getQuantity()));
+            totalAmount = totalAmount.add(itemTotal);
+        }
+
+        // 4. Create Order and generate distinct unique Order ID token
+        Order order = new Order(user, totalAmount, "PENDING");
+        order.setOrderStatus("PLACED");
+        if (paymentStatus != null) {
+            order.setPaymentStatus(paymentStatus);
+            if ("PAID".equals(paymentStatus)) {
+                order.setStatus("PAID");
+                order.setOrderStatus("PLACED");
+            }
+        }
+        String uniqueOrderIdToken = "order_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        order.setRazorpayOrderId(uniqueOrderIdToken);
+        order.setTransactionId("tx_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
+        order.setOrderDate(java.time.LocalDateTime.now());
+
+        // 5. Stamp shipping address snapshot from the selected saved address
+        if (addressId != null) {
+            addressRepository.findById(addressId).ifPresent(addr -> {
+                order.setShippingFullName(addr.getFullName());
+                order.setShippingPhone(addr.getPhoneNumber());
+                order.setShippingAddress(
+                        addr.getAddressLine() + ", " + addr.getCity() + ", " +
+                        addr.getState() + " - " + addr.getPincode());
+            });
+        }
+
+        // 6. Build OrderItems and deduct physical stock
+        for (CartItem item : cartItems) {
+            Product product = item.getProduct();
+            product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
+            productRepository.save(product);
+            OrderItem orderItem = new OrderItem(product, item.getQuantity(), product.getPrice());
+            order.addItem(orderItem);
+        }
+
+        Order savedOrder = orderRepository.save(order);
+
+        // 7. Wipe database active cart clean
+        cartItemRepository.deleteAll(cartItems);
+
+        return savedOrder;
     }
 }

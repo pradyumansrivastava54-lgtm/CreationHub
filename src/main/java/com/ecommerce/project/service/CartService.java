@@ -96,4 +96,12 @@ public class CartService {
                 
         cartItemRepository.delete(cartItem);
     }
+
+    @Transactional
+    public List<CartItem> mergeCart(String username, List<com.ecommerce.project.controller.CartRequest> requests) {
+        for (com.ecommerce.project.controller.CartRequest request : requests) {
+            addToCart(username, request.getProductId(), request.getQuantity());
+        }
+        return getCartItems(username);
+    }
 }
