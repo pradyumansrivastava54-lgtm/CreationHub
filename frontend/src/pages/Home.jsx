@@ -119,7 +119,7 @@ export default function Home() {
       setPage(pageNum);
     } catch (err) {
       if (err.code === 'ERR_NETWORK' || !err.response) {
-        setError(`Network Connection Failure: ${err.message || 'Check Cloud API Logs'}`);
+        setError("Server Connection Failure. Please refresh the page or try again later.");
       } else {
         setError(err.response?.data?.message || 'Failed to load products. Please try again.');
       }
