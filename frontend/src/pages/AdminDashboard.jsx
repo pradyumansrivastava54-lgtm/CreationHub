@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import OrdersFulfillmentTab from '../components/OrdersFulfillmentTab';
@@ -558,7 +558,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-border text-sm">
                         {Object.keys(groups).sort().map((catName) => (
-                          <React.Fragment key={catName}>
+                          <Fragment key={catName}>
                             {/* Structured Category divider header row block with item count badge */}
                             <tr className="bg-slate-50 border-y border-border">
                               <td colSpan="5" className="px-6 py-2.5">
@@ -630,7 +630,7 @@ export default function AdminDashboard() {
                                 </td>
                               </tr>
                             ))}
-                          </React.Fragment>
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
