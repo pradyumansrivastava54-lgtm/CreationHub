@@ -14,6 +14,9 @@ public class OrderController {
     @Autowired
     private OrderService orderService;
 
+    @Autowired
+    private com.ecommerce.project.service.NotificationService notificationService;
+
     @PostMapping("/create")
     public ResponseEntity<Order> createOrder(
             @RequestBody(required = false) java.util.Map<String, Object> body,
@@ -40,6 +43,13 @@ public class OrderController {
             return ResponseEntity.badRequest().body(order);
         }
 
+        try {
+            notificationService.sendOrderConfirmationToUser(order.getUser(), order);
+            notificationService.sendOrderAlertToAdmin(order);
+        } catch (Exception e) {
+            System.err.println("Notification dispatch failed: " + e.getMessage());
+        }
+
         return ResponseEntity.ok(order);
     }
 
@@ -60,8 +70,6 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-
-
     /**
      * POST /api/orders/{orderId}/simulate-payment
      * Development-only endpoint: completes an order without Razorpay modal.
@@ -72,6 +80,14 @@ public class OrderController {
         checkNotAdmin(authentication);
         String username = authentication.getName();
         Order order = orderService.simulatePayment(orderId, username);
+
+        try {
+            notificationService.sendOrderConfirmationToUser(order.getUser(), order);
+            notificationService.sendOrderAlertToAdmin(order);
+        } catch (Exception e) {
+            System.err.println("Notification dispatch failed: " + e.getMessage());
+        }
+
         return ResponseEntity.ok(order);
     }
 
@@ -92,6 +108,14 @@ public class OrderController {
             }
         }
         Order order = orderService.placeOrder(username, addressId, paymentStatus);
+
+        try {
+            notificationService.sendOrderConfirmationToUser(order.getUser(), order);
+            notificationService.sendOrderAlertToAdmin(order);
+        } catch (Exception e) {
+            System.err.println("Notification dispatch failed: " + e.getMessage());
+        }
+
         return ResponseEntity.ok(order);
     }
 

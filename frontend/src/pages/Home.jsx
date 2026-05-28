@@ -5,8 +5,13 @@ import { useCart } from '../context/CartContext';
 import API from '../services/api';
 import ProductCard from '../components/ProductCard';
 import QuickViewModal from '../components/QuickViewModal';
+import Navbar from '../components/Navbar';
+import Hero from '../components/Hero';
+import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Heart, SlidersHorizontal, ShoppingBag, User, LogOut, ShieldAlert, LayoutDashboard } from 'lucide-react';
+import { RiAppsLine, RiSmartphoneLine, RiHeadphoneLine, RiGamepadLine, RiWirelessChargingLine } from 'react-icons/ri';
+import { categories } from '../data/mockData';
 
 /* ──────────────────────────────────────────
    Skeleton Card — shown while loading
@@ -79,18 +84,18 @@ function EmptyState({ onClear }) {
    ══════════════════════════════════════════ */
 export default function Home() {
   const { user, logout } = useAuth();
-  const { totalCartItems } = useCart();
+  const { totalCartItems, searchQuery, setSearchQuery } = useCart();
   const navigate = useNavigate();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Search, sorting & selection states
-  const [searchQuery, setSearchQuery] = useState('');
+  // Sorting & selection states
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('default');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // Wishlist count state
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -161,10 +166,9 @@ export default function Home() {
       if (sortBy === 'price-asc') return a.price - b.price;
       if (sortBy === 'price-desc') return b.price - a.price;
       if (sortBy === 'rating-desc') return (b.rating || 0) - (a.rating || 0);
-      return 0; // default order
+      return 0;
     });
 
-  // Framer Motion grid variants
   const gridVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -175,250 +179,104 @@ export default function Home() {
     }
   };
 
-  const categories = ['All', 'Smart Devices', 'Audio Gear', 'Premium Wearables', 'Gaming Setup'];
-
   return (
-    <div className="min-h-screen bg-slate-50">
-
-      {/* ══════════════════════════════════════════
-          NAVIGATION BAR — Sticky, Glassmorphic
-          ══════════════════════════════════════════ */}
-      <nav className="border-b border-slate-100/80 bg-white/85 backdrop-blur-2xl sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-15 sm:h-16 gap-3">
-
-            {/* ── Brand Logo ── */}
-            <Link to="/" className="flex items-center gap-2.5 flex-shrink-0 group">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-600/20 to-indigo-600/5 rounded-2xl flex items-center justify-center border border-indigo-100 shadow-inner group-hover:border-indigo-200 transition-all">
-                <svg className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-              </div>
-              <span className="text-lg sm:text-xl font-extrabold text-slate-800 tracking-tight">
-                Creation<span className="text-indigo-600">Hub</span>
-              </span>
-            </Link>
-
-            {/* ── Right Actions ── */}
-            <div className="flex items-center gap-1.5 sm:gap-2.5">
-
-              {/* Wishlist — hidden for Admins */}
-              {user?.role !== 'ROLE_ADMIN' && (
-                <Link
-                  to="/wishlist"
-                  className="relative p-2 sm:p-2.5 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 cursor-pointer transition-all shadow-sm bg-white border border-slate-100/80"
-                  title="Wishlist"
-                >
-                  <Heart className="w-4 h-4" />
-                  {wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white ring-2 ring-white">
-                      {wishlistCount}
-                    </span>
-                  )}
-                </Link>
-              )}
-
-              {/* Cart — hidden for Admins */}
-              {user?.role !== 'ROLE_ADMIN' && (
-                <Link
-                  to="/cart"
-                  className="relative p-2 sm:p-2.5 text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-indigo-50 cursor-pointer transition-all shadow-sm bg-white border border-slate-100/80"
-                  title="Cart"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-                  </svg>
-                  {totalCartItems > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-bold text-white ring-2 ring-white">
-                      {totalCartItems}
-                    </span>
-                  )}
-                </Link>
-              )}
-
-              {/* Admin Console — icon-only on mobile, full label on md+ */}
-              {user?.role === 'ROLE_ADMIN' && (
-                <Link
-                  to="/admin"
-                  title="Admin Console"
-                  className="flex items-center gap-1.5 px-2.5 md:px-4 py-2 text-xs font-bold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-xl cursor-pointer transition-all shadow-sm"
-                >
-                  <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
-                  <span className="hidden md:inline tracking-wide">Admin Console</span>
-                </Link>
-              )}
-
-              {/* My Orders — hidden for Admins */}
-              {user?.role !== 'ROLE_ADMIN' && (
-                <Link
-                  to="/orders"
-                  className="hidden sm:flex px-3 md:px-3.5 py-2 text-xs font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 bg-white rounded-xl cursor-pointer items-center gap-1.5 transition-all shadow-sm"
-                >
-                  My Orders
-                </Link>
-              )}
-
-              {/* Divider */}
-              <span className="w-px h-5 bg-slate-200 flex-shrink-0" />
-
-              {/* User session block */}
-              {user ? (
-                <div className="flex items-center gap-1.5 sm:gap-2.5">
-                  {/* Avatar circle — always visible */}
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-indigo-600/20 to-indigo-500/10 rounded-full flex items-center justify-center border border-indigo-100 shadow-sm flex-shrink-0 ring-2 ring-white">
-                      <span className="text-xs font-extrabold text-indigo-600">
-                        {user.username?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    {/* Name + role — only on sm+ */}
-                    <div className="hidden sm:block text-left leading-tight">
-                      <p className="text-xs font-bold text-slate-800 truncate max-w-[80px]">{user.username}</p>
-                      <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
-                        {user.role?.replace('ROLE_', '')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Logout */}
-                  <button
-                    onClick={handleLogout}
-                    title="Logout"
-                    className="p-2 sm:p-2.5 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 cursor-pointer transition-all shadow-sm bg-white border border-slate-100/80 flex-shrink-0"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  to="/login"
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50 bg-white rounded-xl cursor-pointer transition-all shadow-sm active:scale-95"
-                >
-                  <User className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="hidden xs:inline">Sign In</span>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* ══════════════════════════════════════════
-          MAIN CONTENT
-          ══════════════════════════════════════════ */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+    <div className="min-h-screen bg-[#FAF6F0] pb-24 sm:pb-8 flex flex-col justify-between">
+      <div>
+        {/* Shared Luxury Minimalist Header and Floating Bottom Navbar */}
+        <Navbar />
 
         {/* ── Hero Section ── */}
-        <section className="flex flex-col items-center justify-center text-center pt-10 sm:pt-14 pb-6 sm:pb-8">
+        <Hero />
 
-          {/* Eyebrow badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-4 sm:mb-5"
-          >
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[11px] font-bold rounded-full tracking-widest uppercase shadow-inner">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-              Curated Premium Collection
-            </span>
-          </motion.div>
+        {/* ── MAIN CONTENT ── */}
+        <motion.main 
+          initial={{ opacity: 0, y: 12 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-6"
+        >
 
-          {/* Main H1 — fluid responsive scale */}
-          <motion.h1
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut', delay: 0.05 }}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-tight sm:leading-snug text-center px-2 mb-4 sm:mb-5"
-          >
-            Discover Premium{' '}
-            <span className="relative inline-block">
-              <span className="text-indigo-600 bg-indigo-50 border border-indigo-100/60 px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-2xl sm:rounded-3xl shadow-inner">
-                Lifestyle
-              </span>
-            </span>
-            {' '}Gear
-          </motion.h1>
-
-          {/* Subtitle */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.18, duration: 0.5 }}
-            className="text-slate-500 max-w-lg sm:max-w-xl text-sm sm:text-base leading-relaxed mb-7 sm:mb-9 px-2"
-          >
-            A curated collection of next-generation smart devices, premium audio gear,{' '}
-            wearables, and state-of-the-art gaming setups.
-          </motion.p>
-
-          {/* ── Search Bar ── */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.28, duration: 0.4 }}
-            className="w-full max-w-2xl relative"
-          >
-            <div className="flex items-center gap-2.5 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-md hover:shadow-lg focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-400 transition-all duration-300">
-              <Search className="w-4.5 h-4.5 text-slate-400 flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Search by name, category, or specs…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-grow bg-transparent border-0 outline-none text-slate-800 placeholder-slate-400 text-sm focus:ring-0 focus:outline-none"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-all cursor-pointer flex-shrink-0"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        </section>
-
-        {/* ── Filter & Sort Bar ── */}
+        {/* ── Filter & Sort Bar (Integrated Categories Bar) ── */}
         <motion.div
+          id="catalog-section"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35, duration: 0.4 }}
-          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 border-t border-b border-slate-200/60 py-4 sm:py-5 mb-8 sm:mb-10"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 border-b border-zinc-200/60 py-4 sm:py-5 mb-8 sm:mb-10"
         >
-          {/* Category Pills with fade-edge scroll */}
-          <div className="relative w-full sm:w-auto">
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-              {categories.map((category) => (
+          {/* Category Pills showing dynamic circular pods capped by viewport checks */}
+          <div className="relative w-full sm:w-auto overflow-hidden">
+            {/* Mobile category layout capped to exactly 4 circular pods with sub-header See All */}
+            <div className="md:hidden flex flex-col gap-2 w-full">
+              <div className="flex justify-between items-center px-4">
+                <span className="text-xs font-bold text-zinc-900 uppercase tracking-widest font-serif">Categories</span>
                 <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer whitespace-nowrap shadow-sm flex-shrink-0 ${
-                    selectedCategory === category
-                      ? 'bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/15'
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300'
-                  }`}
+                  onClick={() => setIsCategoryModalOpen(true)}
+                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-850 transition-colors uppercase tracking-wider cursor-pointer"
                 >
-                  {category}
+                  See All
                 </button>
-              ))}
+              </div>
+              <div className="flex overflow-x-auto scrollbar-none gap-4 py-3 px-4 text-center justify-start items-center">
+                {categories.slice(0, 4).map((cat) => (
+                  <button
+                    key={cat.name}
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className={`flex flex-col items-center justify-center p-2 text-xs font-bold rounded-full border transition-all cursor-pointer whitespace-nowrap shadow-xs flex-shrink-0 w-16 h-16 ${
+                      selectedCategory === cat.name
+                        ? 'bg-zinc-900 border-zinc-900 text-white shadow-md'
+                        : 'bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 hover:border-zinc-300'
+                    }`}
+                  >
+                    {cat.icon}
+                    <span className="text-[8px] tracking-wider mt-0.5 max-w-[50px] truncate">{cat.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Desktop category layout showing 6 circular category pods with dynamic See All action trigger */}
+            <div className="hidden md:flex items-center gap-4">
+              <div className="flex items-center gap-4 py-3 px-4">
+                {categories.slice(0, 6).map((cat) => (
+                  <button
+                    key={cat.name}
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className={`flex flex-col items-center justify-center px-4 py-2.5 text-xs font-bold rounded-full border transition-all cursor-pointer whitespace-nowrap shadow-xs flex-shrink-0 min-w-[100px] ${
+                      selectedCategory === cat.name
+                        ? 'bg-zinc-900 border-zinc-900 text-white shadow-md'
+                        : 'bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 hover:border-zinc-300'
+                    }`}
+                  >
+                    {cat.icon}
+                    <span className="text-[10px] tracking-wider mt-1">{cat.name}</span>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setIsCategoryModalOpen(true)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors uppercase tracking-wider pl-2 border-l border-zinc-200 cursor-pointer"
+                >
+                  See All
+                </button>
+              </div>
+            </div>
+            
             {/* Right fade mask for scroll hint */}
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-slate-50 to-transparent sm:hidden" />
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[#FAF6F0] to-transparent sm:hidden" />
           </div>
 
           {/* Right: count + sort */}
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-shrink-0">
-            <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-shrink-0 px-4 sm:px-0">
+            <span className="text-[10px] text-zinc-400 font-bold tracking-widest uppercase">
               {filteredProducts.length} Items
             </span>
 
-            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center gap-1.5 bg-white border border-zinc-200 rounded-xl px-3 py-2 shadow-sm">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-transparent border-0 text-xs font-bold text-slate-600 outline-none focus:ring-0 focus:outline-none cursor-pointer pr-0.5"
+                className="bg-transparent border-0 text-xs font-bold text-zinc-600 outline-none focus:ring-0 focus:outline-none cursor-pointer pr-0.5"
               >
                 <option value="default">Default</option>
                 <option value="price-asc">Price: Low → High</option>
@@ -436,7 +294,7 @@ export default function Home() {
 
         {/* ── Loading Skeleton Grid ── */}
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6 lg:gap-8">
+          <div className="grid grid-cols-2 gap-4 px-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -449,7 +307,7 @@ export default function Home() {
             variants={gridVariants}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6 lg:gap-8"
+            className="grid grid-cols-2 gap-4 px-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
           >
             {filteredProducts.map((product) => (
               <ProductCard
@@ -465,7 +323,62 @@ export default function Home() {
         {!loading && !error && filteredProducts.length === 0 && (
           <EmptyState onClear={handleResetFilters} />
         )}
-      </main>
+        </motion.main>
+      </div>
+
+      {/* Premium Footer section */}
+      <Footer />
+
+      {/* ── Full Category Responsive Modal ── */}
+      <AnimatePresence>
+        {isCategoryModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white border border-zinc-200/85 w-full max-w-md rounded-3xl p-6 shadow-2xl relative"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-zinc-100 pb-3 mb-4">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-zinc-900 font-serif">Explore Categories</h3>
+                <button
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="p-1 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-full cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Grid listing ALL categories with vector icons */}
+              <div className="grid grid-cols-3 gap-3">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.name}
+                    onClick={() => {
+                      setSelectedCategory(cat.name);
+                      setIsCategoryModalOpen(false);
+                    }}
+                    className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                      selectedCategory === cat.name
+                        ? 'bg-zinc-900 border-zinc-900 text-white shadow-md scale-102 font-bold'
+                        : 'bg-white border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800'
+                    }`}
+                  >
+                    <div className="text-xl mb-1">{cat.icon}</div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-center">{cat.name}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Quick View Modal ── */}
       <AnimatePresence>

@@ -91,6 +91,12 @@
             <artifactId>razorpay-java</artifactId>
             <version>1.4.3</version>
         </dependency>
+
+        <!-- Spring Mail Starter -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -12,6 +12,12 @@ export default function AdminDashboard() {
   // Tab navigation: 'analytics' | 'catalog' | 'orders' | 'add-product' | 'users'
   const [activeTab, setActiveTab] = useState('analytics');
 
+  useEffect(() => {
+    if (location.state?.activeTab === 'orders') {
+      setActiveTab('orders');
+    }
+  }, [location.state]);
+
   // Users state (for user role management)
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -39,7 +45,29 @@ export default function AdminDashboard() {
     price: '',
     stockQuantity: '',
     imageUrl: '',
+    category: '',
   });
+
+  const DEFAULT_CATEGORIES = ['Smart Devices', 'Audio Gear', 'Premium Wearables', 'Gaming Setup'];
+
+  const getUniqueCategories = () => {
+    const set = new Set(DEFAULT_CATEGORIES);
+    products.forEach(p => {
+      if (p.category && p.category.trim() !== '') {
+        set.add(p.category.trim());
+      }
+    });
+    return Array.from(set);
+  };
+
+  const [showNewCategoryField, setShowNewCategoryField] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  
+  const [showEditNewCategoryField, setShowEditNewCategoryField] = useState(false);
+  const [editNewCategoryName, setEditNewCategoryName] = useState('');
+
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState('');
+  const [catalogSelectedCategory, setCatalogSelectedCategory] = useState('All');
 
   // Edit Modal State
   const [editingProduct, setEditingProduct] = useState(null);
@@ -171,12 +199,17 @@ export default function AdminDashboard() {
     setSuccessMsg('');
 
     try {
+      const activeCategory = showNewCategoryField && newCategoryName.trim() !== '' 
+        ? newCategoryName.trim() 
+        : formData.category;
+
       await API.post('/api/products', {
         name: formData.name,
         description: formData.description,
         price: Number(formData.price),
         stockQuantity: Math.floor(Number(formData.stockQuantity)),
         imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
+        category: activeCategory,
       });
 
       setSuccessMsg('Product Added Successfully!');
@@ -187,7 +220,10 @@ export default function AdminDashboard() {
         price: '',
         stockQuantity: '',
         imageUrl: '',
+        category: '',
       });
+      setNewCategoryName('');
+      setShowNewCategoryField(false);
       fetchProducts();
       fetchAnalytics();
       setActiveTab('catalog'); // Switch to catalog to see it
@@ -238,9 +274,20 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!editingProduct) return;
     try {
-      await API.put(`/api/products/${editingProduct.id}`, editingProduct);
+      const activeCategory = showEditNewCategoryField && editNewCategoryName.trim() !== ''
+        ? editNewCategoryName.trim()
+        : editingProduct.category;
+
+      const payload = {
+        ...editingProduct,
+        category: activeCategory,
+      };
+
+      await API.put(`/api/products/${editingProduct.id}`, payload);
       alert('Product updated successfully!');
       setEditingProduct(null);
+      setEditNewCategoryName('');
+      setShowEditNewCategoryField(false);
       fetchProducts();
       fetchAnalytics();
     } catch (err) {
@@ -406,99 +453,165 @@ export default function AdminDashboard() {
         )}
 
         {/* TAB 2: MANAGE CATALOG */}
-        {activeTab === 'catalog' && (
-          <div className="space-y-6 animate-slide-up">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-text-primary">Warehouse Catalog Management</h2>
-              <button
-                onClick={fetchProducts}
-                className="px-4 py-2 bg-surface-input border border-border hover:border-primary/50 rounded-xl text-xs font-semibold text-text-primary transition-all cursor-pointer"
-              >
-                Refresh Data
-              </button>
-            </div>
+        {activeTab === 'catalog' && (() => {
+          const filteredCatalogProducts = products.filter(p => {
+            const categoryMatch = catalogSelectedCategory === 'All' || p.category === catalogSelectedCategory;
+            const query = catalogSearchQuery.toLowerCase().trim();
+            const nameMatch = p.name?.toLowerCase().includes(query);
+            const descMatch = p.description?.toLowerCase().includes(query);
+            const catMatch = p.category?.toLowerCase().includes(query);
+            return categoryMatch && (nameMatch || descMatch || catMatch);
+          });
 
-            {productsLoading ? (
-              <div className="py-20 flex justify-center">
-                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+          const groups = {};
+          filteredCatalogProducts.forEach(p => {
+            const cat = p.category || 'General';
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(p);
+          });
+
+          return (
+            <div className="space-y-6 animate-slide-up">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-text-primary">Warehouse Catalog Management</h2>
+                <button
+                  onClick={fetchProducts}
+                  className="px-4 py-2 bg-surface-input border border-border hover:border-primary/50 rounded-xl text-xs font-semibold text-text-primary transition-all cursor-pointer"
+                >
+                  Refresh Data
+                </button>
               </div>
-            ) : products.length === 0 ? (
-              <div className="bg-surface-card border border-border p-12 text-center rounded-2xl">
-                <p className="text-text-secondary text-base">No products found inside database. Click &apos;Add New Product&apos; to create one.</p>
-              </div>
-            ) : (
-              <div className="bg-surface-card border border-border rounded-2xl overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-border bg-surface text-text-muted text-xs uppercase font-bold tracking-wider">
-                        <th className="px-6 py-4">ID</th>
-                        <th className="px-6 py-4">Product Name</th>
-                        <th className="px-6 py-4">Price</th>
-                        <th className="px-6 py-4 text-center">Stock Level</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border text-sm">
-                      {products.map((p) => (
-                        <tr key={p.id} className="hover:bg-surface/30 transition-colors">
-                          <td className="px-6 py-4 text-text-secondary font-mono">{p.id}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={p.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=40&q=80'}
-                                alt=""
-                                className="w-10 h-10 object-cover rounded-lg border border-border"
-                              />
-                              <div className="min-w-0">
-                                <p className="font-bold text-text-primary truncate">{p.name}</p>
-                                <p className="text-text-muted text-xs truncate max-w-xs">{p.description || 'No description'}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-primary font-bold">₹{Number(p.price).toFixed(2)}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-center gap-3">
-                              <button
-                                onClick={() => handleUpdateStock(p.id, -1)}
-                                className="w-7 h-7 flex items-center justify-center bg-surface-input border border-border hover:bg-surface-card rounded-md font-bold text-text-primary cursor-pointer active:scale-90"
-                              >
-                                -
-                              </button>
-                              <span className={`w-10 text-center font-extrabold ${p.stockQuantity < 5 ? 'text-danger' : 'text-text-primary'}`}>
-                                {p.stockQuantity}
-                              </span>
-                              <button
-                                onClick={() => handleUpdateStock(p.id, 1)}
-                                className="w-7 h-7 flex items-center justify-center bg-surface-input border border-border hover:bg-surface-card rounded-md font-bold text-text-primary cursor-pointer active:scale-90"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right space-x-2">
-                            <button
-                              onClick={() => setEditingProduct(p)}
-                              className="px-3 py-1.5 bg-primary/20 hover:bg-primary/35 text-primary font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(p.id)}
-                              className="px-3 py-1.5 bg-danger-bg hover:bg-danger/35 text-danger font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+
+              {/* Dynamic Filter and Search Control Row */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-surface-card border border-border p-4 rounded-2xl shadow-sm">
+                <div className="w-full sm:w-64">
+                  <select
+                    value={catalogSelectedCategory}
+                    onChange={(e) => setCatalogSelectedCategory(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-surface-input border border-border rounded-xl text-text-primary text-xs font-bold cursor-pointer focus:border-primary transition-all"
+                  >
+                    <option value="All">All Categories</option>
+                    {getUniqueCategories().map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-full sm:w-80">
+                  <input
+                    type="text"
+                    placeholder="Search product name or category..."
+                    value={catalogSearchQuery}
+                    onChange={(e) => setCatalogSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-surface-input border border-border rounded-xl text-text-primary text-xs focus:border-primary placeholder-text-muted transition-all"
+                  />
                 </div>
               </div>
-            )}
-          </div>
-        )}
+
+              {productsLoading ? (
+                <div className="py-20 flex justify-center">
+                  <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : filteredCatalogProducts.length === 0 ? (
+                <div className="bg-surface-card border border-border p-12 text-center rounded-2xl">
+                  <p className="text-text-secondary text-base">No matching products found inside database.</p>
+                </div>
+              ) : (
+                <div className="bg-surface-card border border-border rounded-2xl overflow-hidden shadow-xl">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border bg-surface text-text-muted text-xs uppercase font-bold tracking-wider">
+                          <th className="px-6 py-4">ID</th>
+                          <th className="px-6 py-4">Product Details</th>
+                          <th className="px-6 py-4">Price</th>
+                          <th className="px-6 py-4 text-center">Stock Level</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border text-sm">
+                        {Object.keys(groups).sort().map((catName) => (
+                          <React.Fragment key={catName}>
+                            {/* Structured Category divider header row block with item count badge */}
+                            <tr className="bg-slate-50 border-y border-border">
+                              <td colSpan="5" className="px-6 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] font-bold tracking-widest text-primary uppercase bg-primary/10 border border-primary/20 rounded-full px-3 py-1 shadow-xs">
+                                    {catName}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                                    ({groups[catName].length} item{groups[catName].length > 1 ? 's' : ''})
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                            
+                            {groups[catName].map((p) => (
+                              <tr key={p.id} className="hover:bg-surface/30 transition-colors">
+                                <td className="px-6 py-4 text-text-secondary font-mono">#{p.id}</td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <img
+                                      src={p.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=40&q=80'}
+                                      alt=""
+                                      className="w-10 h-10 object-cover rounded-lg border border-border"
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-text-primary truncate max-w-xs">{p.name}</p>
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded uppercase">
+                                          {p.category || 'General'}
+                                        </span>
+                                        <p className="text-text-muted text-xs truncate max-w-[200px]">{p.description || 'No description'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-primary font-bold">₹{Number(p.price).toFixed(2)}</td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center justify-center gap-3">
+                                    <button
+                                      onClick={() => handleUpdateStock(p.id, -1)}
+                                      className="w-7 h-7 flex items-center justify-center bg-surface-input border border-border hover:bg-surface-card rounded-md font-bold text-text-primary cursor-pointer active:scale-90"
+                                    >
+                                      -
+                                    </button>
+                                    <span className={`w-10 text-center font-extrabold ${p.stockQuantity < 5 ? 'text-danger' : 'text-text-primary'}`}>
+                                      {p.stockQuantity}
+                                    </span>
+                                    <button
+                                      onClick={() => handleUpdateStock(p.id, 1)}
+                                      className="w-7 h-7 flex items-center justify-center bg-surface-input border border-border hover:bg-surface-card rounded-md font-bold text-text-primary cursor-pointer active:scale-90"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                                  <button
+                                    onClick={() => setEditingProduct(p)}
+                                    className="px-3 py-1.5 bg-primary/20 hover:bg-primary/35 text-primary font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteProduct(p.id)}
+                                    className="px-3 py-1.5 bg-danger-bg hover:bg-danger/35 text-danger font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* TAB 3: ORDERS FULFILLMENT */}
         {activeTab === 'orders' && (
@@ -541,6 +654,57 @@ export default function AdminDashboard() {
                     placeholder="e.g. Wireless Headset"
                     className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary transition-all"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-text-secondary mb-2">Select Category *</label>
+                  {!showNewCategoryField ? (
+                    <div className="space-y-2">
+                      <select
+                        name="category"
+                        required
+                        value={formData.category}
+                        onChange={handleFormChange}
+                        className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary focus:border-primary transition-all cursor-pointer font-medium"
+                      >
+                        <option value="">-- Choose Category --</option>
+                        {getUniqueCategories().map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewCategoryField(true)}
+                        className="text-xs font-bold text-primary hover:underline cursor-pointer block mt-1"
+                      >
+                        + Add New Category
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 bg-slate-50 border border-slate-200/50 p-4 rounded-xl">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-text-secondary">Type Custom Category Name</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewCategoryField(false);
+                            setNewCategoryName('');
+                          }}
+                          className="text-xs font-bold text-danger hover:underline cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="e.g. Mechanical Keyboards"
+                        className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-text-primary focus:border-primary transition-all"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -720,6 +884,56 @@ export default function AdminDashboard() {
                   onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
                   className="w-full px-3 py-2.5 bg-surface-input border border-border rounded-xl text-text-primary"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Product Category</label>
+                {!showEditNewCategoryField ? (
+                  <div className="space-y-1">
+                    <select
+                      required
+                      value={editingProduct.category || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-surface-input border border-border rounded-xl text-text-primary cursor-pointer focus:border-primary transition-all font-medium"
+                    >
+                      <option value="">-- Select Category --</option>
+                      {getUniqueCategories().map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowEditNewCategoryField(true)}
+                      className="text-[10px] font-bold text-primary hover:underline cursor-pointer block mt-1"
+                    >
+                      + Add New Category
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 bg-slate-50 border border-slate-200/50 p-3 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold text-text-secondary uppercase">Type Custom Category Name</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowEditNewCategoryField(false);
+                          setEditNewCategoryName('');
+                        }}
+                        className="text-[10px] font-bold text-danger hover:underline cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={editNewCategoryName}
+                      onChange={(e) => setEditNewCategoryName(e.target.value)}
+                      placeholder="e.g. Mechanical Keyboards"
+                      className="w-full px-3 py-2.5 bg-white border border-border rounded-xl text-text-primary focus:border-primary transition-all"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import API from '../services/api';
+import Navbar from '../components/Navbar';
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -71,66 +72,9 @@ export default function ProductDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      {/* ── Navigation Bar ─────────────────────── */}
-      <nav className="border-b border-border bg-surface-card/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 bg-primary/20 rounded-xl flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-text-primary">CreationHub</span>
-            </Link>
-
-            <div className="flex items-center gap-3">
-              <Link 
-                to="/cart"
-                className="relative p-2 text-text-secondary hover:text-primary rounded-lg hover:bg-surface-input cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-                </svg>
-                {totalCartItems > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white ring-2 ring-surface-card">
-                    {totalCartItems}
-                  </span>
-                )}
-              </Link>
-
-              {user ? (
-                <>
-                  {user.role === 'ROLE_ADMIN' && (
-                    <Link
-                      to="/admin"
-                      className="px-3 py-2 text-sm font-semibold text-primary border border-primary/30 bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer flex items-center gap-1.5 transition-all"
-                    >
-                      Admin Console
-                    </Link>
-                  )}
-                  <div className="hidden sm:flex items-center gap-2">
-                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-primary">
-                        {user.username?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <Link
-                  to="/login"
-                  state={{ from: `/product/${id}` }}
-                  className="px-4 py-2 text-xs font-bold text-indigo-600 border border-indigo-200 hover:bg-indigo-50/50 bg-white rounded-xl cursor-pointer flex items-center gap-1.5 transition-all shadow-sm active:scale-95 animate-fade-in"
-                >
-                  Sign In
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#FAF6F0] pb-24 sm:pb-8">
+      {/* ── Navigation Bar ── */}
+      <Navbar />
 
       {/* ── Main Layout ───────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

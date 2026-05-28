@@ -8,6 +8,7 @@ export function CartProvider({ children }) {
   const { isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState([]);
   const [toastMessage, setToastMessage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -200,7 +201,9 @@ export function CartProvider({ children }) {
         addToCart,
         updateQuantity,
         removeFromCart,
-        totalCartItems
+        totalCartItems,
+        searchQuery,
+        setSearchQuery
       }}
     >
       {children}

@@ -80,6 +80,25 @@ public class AddressController {
         return ResponseEntity.ok(addressRepository.save(address));
     }
 
+    /**
+     * DELETE /api/addresses/{id}
+     * Safely deletes a saved address owned by the current authenticated user.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteAddress(@PathVariable Long id, Authentication authentication) {
+        User user = resolveUser(authentication);
+        Address address = addressRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Address", "id", id));
+
+        // Ownership guard
+        if (!address.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        addressRepository.delete(address);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Helper ──────────────────────────────────────────────────────────────
     private User resolveUser(Authentication authentication) {
         String username = authentication.getName();

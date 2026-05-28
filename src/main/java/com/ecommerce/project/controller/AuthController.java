@@ -96,4 +96,39 @@ public class AuthController {
 
         return ResponseEntity.ok(authResponse);
     }
+
+    /**
+     * PUT /api/auth/profile
+     * Updates username and email for the currently authenticated user.
+     */
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> body, Authentication authentication) {
+        String currentUsername = authentication.getName();
+        User user = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new com.ecommerce.project.exception.ApiException("User not found"));
+
+        if (body.containsKey("username")) {
+            String newUsername = body.get("username").trim();
+            if (!newUsername.equals(user.getUsername()) && userRepository.existsByUsername(newUsername)) {
+                throw new com.ecommerce.project.exception.ApiException("Username '" + newUsername + "' is already taken");
+            }
+            user.setUsername(newUsername);
+        }
+
+        if (body.containsKey("email")) {
+            String newEmail = body.get("email").trim();
+            if (!newEmail.equals(user.getEmail()) && userRepository.existsByEmail(newEmail)) {
+                throw new com.ecommerce.project.exception.ApiException("Email '" + newEmail + "' is already registered");
+            }
+            user.setEmail(newEmail);
+        }
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Profile updated successfully",
+                "username", user.getUsername(),
+                "email", user.getEmail()
+        ));
+    }
 }

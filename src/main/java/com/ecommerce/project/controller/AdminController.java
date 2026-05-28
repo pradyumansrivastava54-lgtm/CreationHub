@@ -29,6 +29,9 @@ public class AdminController {
     @Autowired
     private ProductRepository productRepository;
 
+    @Autowired
+    private com.ecommerce.project.service.NotificationService notificationService;
+
     /**
      * GET /api/admin/analytics
      * Restricted to ROLE_ADMIN only.
@@ -161,5 +164,37 @@ public class AdminController {
     public ResponseEntity<List<com.ecommerce.project.model.Product>> getLowStockProducts() {
         List<com.ecommerce.project.model.Product> lowStock = productRepository.findByStockQuantityLessThan(5);
         return ResponseEntity.ok(lowStock);
+    }
+
+    /**
+     * POST /api/admin/notifications/broadcast
+     * Restricted to ROLE_ADMIN only.
+     * Triggers asynchronous parallelized background loops to broadcast marketing announcements.
+     */
+    @PostMapping("/notifications/broadcast")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> broadcastMarketingCampaign(
+            @RequestBody Map<String, String> payload) {
+        String title = payload.get("title");
+        String message = payload.get("message");
+        
+        if (title == null || title.trim().isEmpty() || message == null || message.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "title and message are required fields"));
+        }
+
+        List<User> recipients = userRepository.findAll();
+        int dispatchCount = 0;
+        
+        for (User recipient : recipients) {
+            if (recipient.getEmail() != null && !recipient.getEmail().trim().isEmpty()) {
+                notificationService.broadcastPromotionalCampaign(recipient.getEmail(), title, message);
+                dispatchCount++;
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "status", "DISPATCHED",
+                "message", "Broadcast triggered asynchronously for " + dispatchCount + " active user mailboxes."
+        ));
     }
 }

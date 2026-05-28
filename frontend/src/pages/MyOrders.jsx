@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../services/api';
+import Navbar from '../components/Navbar';
 
 export default function MyOrders() {
   const navigate = useNavigate();
@@ -28,29 +29,15 @@ export default function MyOrders() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen bg-[#FAF6F0] pb-24 sm:pb-8 flex flex-col font-sans">
       {/* Navbar */}
-      <nav className="border-b border-border bg-surface-card/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 bg-primary/20 rounded-xl flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-                <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </div>
-              <span className="text-lg font-bold text-text-primary">CreationHub</span>
-            </Link>
-            <span className="text-sm font-semibold text-text-secondary">My Orders</span>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Content Area */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-text-primary">Order History</h1>
-          <p className="text-text-secondary mt-1">Review and track your previous transactions</p>
+      <main className="flex-grow w-full max-w-md mx-auto px-4 box-border md:max-w-5xl pt-3 pb-8">
+        <div className="mb-5">
+          <h1 className="text-2xl font-bold text-zinc-950 font-serif tracking-tight">Order History</h1>
+          <p className="text-xs text-zinc-500 mt-1">Review and track your previous transactions</p>
         </div>
 
         {loading ? (
@@ -92,7 +79,7 @@ export default function MyOrders() {
           /* Orders list */
           <div className="space-y-6 animate-slide-up">
             {orders.map((order) => (
-              <div key={order.id} className="bg-surface-card border border-border rounded-2xl p-6 lg:p-8 shadow-xl space-y-6">
+              <div key={order.id} className="bg-surface-card border border-border rounded-2xl p-4 sm:p-6 lg:p-8 shadow-xl space-y-6">
                 {/* Header Row */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border pb-4">
                   <div className="space-y-1">
@@ -113,21 +100,21 @@ export default function MyOrders() {
                   <p className="text-xs font-bold text-text-muted uppercase tracking-wider">Items Purchased</p>
                   <div className="divide-y divide-border">
                     {order.items?.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center py-3 first:pt-0 last:pb-0 gap-4">
-                        <div className="flex items-center gap-3">
+                      <div key={item.id} className="flex justify-between items-center py-3 first:pt-0 last:pb-0 gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-grow">
                           <img
                             src={item.product?.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=40&q=80'}
                             alt=""
                             className="w-10 h-10 object-cover rounded-lg border border-border shrink-0"
                           />
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-text-primary truncate">{item.product?.name}</p>
+                          <div className="min-w-0 flex-grow">
+                            <p className="text-sm font-bold text-text-primary truncate max-w-[110px] xs:max-w-[165px] sm:max-w-[340px]">{item.product?.name}</p>
                             <p className="text-text-muted text-xs">
                               {item.quantity} unit{item.quantity > 1 ? 's' : ''} at ₹{Number(item.price).toFixed(2)}
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-text-primary">
                             ₹{Number(item.price * item.quantity).toFixed(2)}
                           </p>

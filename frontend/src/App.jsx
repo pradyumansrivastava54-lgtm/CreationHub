@@ -11,6 +11,7 @@ import MyOrders from './pages/MyOrders';
 import AdminDashboard from './pages/AdminDashboard';
 import Checkout from './pages/Checkout';
 import Wishlist from './pages/Wishlist';
+import Profile from './pages/Profile';
 import { CartProvider } from './context/CartContext';
 
 function PublicRoute({ children }) {
@@ -98,6 +99,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyOrders />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />
