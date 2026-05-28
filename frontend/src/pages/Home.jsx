@@ -119,7 +119,7 @@ export default function Home() {
       setPage(pageNum);
     } catch (err) {
       if (err.code === 'ERR_NETWORK' || !err.response) {
-        setError('The server appears to be offline. Please ensure the backend is running on localhost:8080.');
+        setError(`Network Connection Failure: ${err.message || 'Check Cloud API Logs'}`);
       } else {
         setError(err.response?.data?.message || 'Failed to load products. Please try again.');
       }
