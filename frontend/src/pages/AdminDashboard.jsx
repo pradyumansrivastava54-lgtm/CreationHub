@@ -96,6 +96,33 @@ export default function AdminDashboard() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+
+  const handleBroadcastCampaign = async (e) => {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      alert('Please fill out both Subject and Message fields.');
+      return;
+    }
+    setBroadcastLoading(true);
+    try {
+      await API.post('/api/admin/notifications/broadcast', {
+        title: broadcastTitle,
+        message: broadcastMessage,
+      });
+      alert('Campaign successfully broadcasted to all active users!');
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+    } catch (err) {
+      console.error('Failed to dispatch campaign:', err);
+      alert(err.response?.data?.error || 'Failed to dispatch broadcast marketing campaign.');
+    } finally {
+      setBroadcastLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -345,6 +372,7 @@ export default function AdminDashboard() {
             { id: 'orders', label: 'Orders Fulfillment' },
             { id: 'add-product', label: 'Add New Product' },
             { id: 'users', label: 'User Roles (RBAC)' },
+            { id: 'marketing', label: 'Marketing & Announcements' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -854,6 +882,63 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB 6: MARKETING & ANNOUNCEMENTS */}
+        {activeTab === 'marketing' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-text-primary">Admin Broadcast Marketing Console</h2>
+            </div>
+
+            <div className="bg-surface-card border border-border p-6 rounded-2xl shadow-lg max-w-2xl">
+              <h3 className="text-lg font-bold text-text-primary mb-4">Create System-wide Broadcast</h3>
+              <p className="text-xs text-text-secondary mb-6">
+                Draft a promotional campaign or emergency announcement. Clicking broadcast will trigger an asynchronous background parallel loop to email all active consumers directly in a single stroke.
+              </p>
+
+              <form onSubmit={handleBroadcastCampaign} className="space-y-6">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-2">Campaign Subject / Title</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Exclusive Weekend Sale: Get 25% Off Premium Gear!"
+                    value={broadcastTitle}
+                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                    className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary transition-all font-medium text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-2">Offer Message Context</label>
+                  <textarea
+                    required
+                    rows={6}
+                    placeholder="Provide detailed campaign body text or promotional announcement message context..."
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary transition-all resize-none text-sm leading-relaxed"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={broadcastLoading}
+                  className="px-6 py-3 bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold rounded-xl active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 text-sm shadow-md"
+                >
+                  {broadcastLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Broadcasting...
+                    </>
+                  ) : (
+                    'Broadcast Campaign Live'
+                  )}
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </main>
