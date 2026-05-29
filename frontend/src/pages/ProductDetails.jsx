@@ -11,6 +11,14 @@ export default function ProductDetails() {
   const { user } = useAuth();
   const { cartItems, addToCart, updateQuantity, totalCartItems } = useCart();
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,7 +85,19 @@ export default function ProductDetails() {
       <Navbar />
 
       {/* ── Main Layout ───────────────────────── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Navigation Strip */}
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={handleBack}
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/60 shadow-sm text-zinc-800 cursor-pointer hover:bg-zinc-50 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest cursor-pointer" onClick={handleBack}>Back</span>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start bg-surface-card border border-border rounded-3xl p-8 lg:p-12 shadow-2xl">
           {/* Left Column: Product Image */}
           <div className="aspect-square w-full rounded-2xl overflow-hidden bg-surface relative border border-border">

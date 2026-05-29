@@ -1,7 +1,9 @@
 package com.ecommerce.project.controller;
 
+import com.ecommerce.project.model.BroadcastCampaign;
 import com.ecommerce.project.model.Order;
 import com.ecommerce.project.model.User;
+import com.ecommerce.project.repository.BroadcastCampaignRepository;
 import com.ecommerce.project.repository.ProductRepository;
 import com.ecommerce.project.repository.UserRepository;
 import com.ecommerce.project.service.OrderService;
@@ -15,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -31,6 +34,9 @@ public class AdminController {
 
     @Autowired
     private com.ecommerce.project.service.NotificationService notificationService;
+
+    @Autowired
+    private BroadcastCampaignRepository broadcastCampaignRepository;
 
     /**
      * GET /api/admin/analytics
@@ -169,7 +175,7 @@ public class AdminController {
     /**
      * POST /api/admin/notifications/broadcast
      * Restricted to ROLE_ADMIN only.
-     * Triggers asynchronous parallelized background loops to broadcast marketing announcements.
+     * Triggers async broadcast and persists a BroadcastCampaign audit record.
      */
     @PostMapping("/notifications/broadcast")
     @PreAuthorize("hasRole('ADMIN')")
@@ -177,24 +183,41 @@ public class AdminController {
             @RequestBody Map<String, String> payload) {
         String title = payload.get("title");
         String message = payload.get("message");
-        
+
         if (title == null || title.trim().isEmpty() || message == null || message.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "title and message are required fields"));
         }
 
         List<User> recipients = userRepository.findAll();
-        int dispatchCount = 0;
-        
+        List<String> targetEmails = new ArrayList<>();
+
         for (User recipient : recipients) {
             if (recipient.getEmail() != null && !recipient.getEmail().trim().isEmpty()) {
                 notificationService.broadcastPromotionalCampaign(recipient.getEmail(), title, message);
-                dispatchCount++;
+                targetEmails.add(recipient.getEmail());
             }
         }
 
+        // Persist broadcast campaign audit record
+        String recipientsCsv = String.join(",", targetEmails);
+        BroadcastCampaign campaign = new BroadcastCampaign(title, message, targetEmails.size(), recipientsCsv);
+        broadcastCampaignRepository.save(campaign);
+
         return ResponseEntity.ok(Map.of(
                 "status", "DISPATCHED",
-                "message", "Broadcast triggered asynchronously for " + dispatchCount + " active user mailboxes."
+                "message", "Broadcast triggered asynchronously for " + targetEmails.size() + " active user mailboxes.",
+                "campaignId", campaign.getId().toString()
         ));
+    }
+
+    /**
+     * GET /api/admin/broadcasts
+     * Restricted to ROLE_ADMIN only.
+     * Returns full broadcast campaign history sorted newest-first.
+     */
+    @GetMapping("/broadcasts")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<BroadcastCampaign>> getBroadcastHistory() {
+        return ResponseEntity.ok(broadcastCampaignRepository.findAllByOrderBySentAtDesc());
     }
 }

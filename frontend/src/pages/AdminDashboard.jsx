@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import OrdersFulfillmentTab from '../components/OrdersFulfillmentTab';
 import API from '../services/api';
 
@@ -99,25 +100,47 @@ export default function AdminDashboard() {
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [broadcastSuccess, setBroadcastSuccess] = useState('');
+  const [broadcastError, setBroadcastError] = useState('');
+
+  // Broadcast campaign history state
+  const [campaignHistory, setCampaignHistory] = useState([]);
+  const [historyFetching, setHistoryFetching] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+
+  const fetchBroadcastHistory = useCallback(async () => {
+    setHistoryFetching(true);
+    try {
+      const res = await API.get('/api/admin/broadcasts');
+      setCampaignHistory(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch broadcast history:', err);
+    } finally {
+      setHistoryFetching(false);
+    }
+  }, []);
 
   const handleBroadcastCampaign = async (e) => {
     e.preventDefault();
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
-      alert('Please fill out both Subject and Message fields.');
+      setBroadcastError('Please fill out both Subject and Message fields.');
       return;
     }
     setBroadcastLoading(true);
+    setBroadcastError('');
+    setBroadcastSuccess('');
     try {
-      await API.post('/api/admin/notifications/broadcast', {
+      const res = await API.post('/api/admin/notifications/broadcast', {
         title: broadcastTitle,
         message: broadcastMessage,
       });
-      alert('Campaign successfully broadcasted to all active users!');
+      setBroadcastSuccess(res.data?.message || 'Campaign successfully broadcasted to all active users!');
       setBroadcastTitle('');
       setBroadcastMessage('');
+      fetchBroadcastHistory(); // refresh the history panel immediately
     } catch (err) {
       console.error('Failed to dispatch campaign:', err);
-      alert(err.response?.data?.error || 'Failed to dispatch broadcast marketing campaign.');
+      setBroadcastError(err.response?.data?.error || 'Failed to dispatch broadcast marketing campaign.');
     } finally {
       setBroadcastLoading(false);
     }
@@ -185,7 +208,8 @@ export default function AdminDashboard() {
     fetchProducts();
     fetchOrders();
     fetchUsers();
-  }, [fetchAnalytics, fetchProducts, fetchOrders, fetchUsers]);
+    fetchBroadcastHistory();
+  }, [fetchAnalytics, fetchProducts, fetchOrders, fetchUsers, fetchBroadcastHistory]);
 
   useEffect(() => {
     if (location.pathname === '/admin/users') {
@@ -885,62 +909,262 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: MARKETING & ANNOUNCEMENTS */}
+        {/* TAB 6: MARKETING & ANNOUNCEMENTS — Dual Panel Layout */}
         {activeTab === 'marketing' && (
           <div className="space-y-6 animate-slide-up">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-text-primary">Admin Broadcast Marketing Console</h2>
+              <div>
+                <h2 className="text-2xl font-bold text-text-primary">Admin Broadcast Marketing Console</h2>
+                <p className="text-xs text-text-secondary mt-1">Create campaigns and review full dispatch history in real-time.</p>
+              </div>
+              <button
+                onClick={fetchBroadcastHistory}
+                className="px-4 py-2 bg-surface-input border border-border hover:border-primary/50 rounded-xl text-xs font-semibold text-text-secondary transition-all cursor-pointer"
+              >
+                ↻ Refresh History
+              </button>
             </div>
 
-            <div className="bg-surface-card border border-border p-6 rounded-2xl shadow-lg max-w-2xl">
-              <h3 className="text-lg font-bold text-text-primary mb-4">Create System-wide Broadcast</h3>
-              <p className="text-xs text-text-secondary mb-6">
-                Draft a promotional campaign or emergency announcement. Clicking broadcast will trigger an asynchronous background parallel loop to email all active consumers directly in a single stroke.
-              </p>
+            {/* ── Dual Panel Grid ───────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
 
-              <form onSubmit={handleBroadcastCampaign} className="space-y-6">
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-2">Campaign Subject / Title</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Exclusive Weekend Sale: Get 25% Off Premium Gear!"
-                    value={broadcastTitle}
-                    onChange={(e) => setBroadcastTitle(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary transition-all font-medium text-sm"
-                  />
+              {/* LEFT PANEL — Composer (3 cols) */}
+              <div className="lg:col-span-3 bg-surface-card border border-border p-6 rounded-2xl shadow-lg">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-text-primary">Create System-wide Broadcast</h3>
+                    <p className="text-[11px] text-text-secondary">Emails all active registered users asynchronously.</p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-2">Offer Message Context</label>
-                  <textarea
-                    required
-                    rows={6}
-                    placeholder="Provide detailed campaign body text or promotional announcement message context..."
-                    value={broadcastMessage}
-                    onChange={(e) => setBroadcastMessage(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary transition-all resize-none text-sm leading-relaxed"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={broadcastLoading}
-                  className="px-6 py-3 bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold rounded-xl active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 text-sm shadow-md"
-                >
-                  {broadcastLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Broadcasting...
-                    </>
-                  ) : (
-                    'Broadcast Campaign Live'
+                {/* Inline Success Banner */}
+                <AnimatePresence>
+                  {broadcastSuccess && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-emerald-700"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      {broadcastSuccess}
+                      <button onClick={() => setBroadcastSuccess('')} className="ml-auto text-emerald-400 hover:text-emerald-600 cursor-pointer">✕</button>
+                    </motion.div>
                   )}
-                </button>
-              </form>
+                </AnimatePresence>
+
+                {/* Inline Error Banner */}
+                <AnimatePresence>
+                  {broadcastError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-red-700"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      {broadcastError}
+                      <button onClick={() => setBroadcastError('')} className="ml-auto text-red-400 hover:text-red-600 cursor-pointer">✕</button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <form onSubmit={handleBroadcastCampaign} className="space-y-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Campaign Subject / Title</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Exclusive Weekend Sale: 25% Off Premium Gear!"
+                      value={broadcastTitle}
+                      onChange={(e) => setBroadcastTitle(e.target.value)}
+                      className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Campaign Message Body</label>
+                    <textarea
+                      required
+                      rows={7}
+                      placeholder="Provide detailed campaign body text or promotional announcement..."
+                      value={broadcastMessage}
+                      onChange={(e) => setBroadcastMessage(e.target.value)}
+                      className="w-full px-4 py-3 bg-surface-input border border-border rounded-xl text-text-primary placeholder-text-muted focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all resize-none text-sm leading-relaxed"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={broadcastLoading}
+                    className="w-full py-3.5 bg-[#1e293b] hover:bg-[#0f172a] text-white font-bold rounded-xl active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 text-sm shadow-md tracking-wide"
+                  >
+                    {broadcastLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Broadcasting to all users...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                        Broadcast Campaign Live
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* RIGHT PANEL — Campaign History (2 cols) */}
+              <div className="lg:col-span-2 bg-surface-card border border-border rounded-2xl shadow-lg flex flex-col overflow-hidden" style={{ minHeight: '520px' }}>
+                <div className="p-5 border-b border-border flex items-center justify-between bg-slate-50/50">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Broadcast History</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">{campaignHistory.length} campaign{campaignHistory.length !== 1 ? 's' : ''} dispatched</p>
+                  </div>
+                  {historyFetching && (
+                    <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[500px]">
+                  {campaignHistory.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                        <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-bold text-slate-500">No campaigns yet</p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-[160px] leading-relaxed">Fire your first broadcast from the composer on the left.</p>
+                    </div>
+                  ) : (
+                    campaignHistory.map((campaign) => (
+                      <motion.div
+                        key={campaign.id}
+                        whileHover={{ scale: 1.015, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedCampaign(campaign)}
+                        className="p-4 bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md rounded-2xl cursor-pointer transition-all group"
+                      >
+                        {/* Campaign Subject */}
+                        <p className="text-sm font-bold text-slate-800 leading-snug line-clamp-2 group-hover:text-indigo-700 transition-colors">
+                          {campaign.title}
+                        </p>
+                        {/* Sent At */}
+                        <p className="text-[11px] text-slate-400 mt-1.5 font-medium">
+                          {new Date(campaign.sentAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </p>
+                        {/* Recipients Pill */}
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-full text-[10px] font-bold">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            {campaign.recipientCount} Recipients
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">Click to expand →</span>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
+
+        {/* ── CAMPAIGN DETAIL MODAL ────────────────────────────────── */}
+        <AnimatePresence>
+          {selectedCampaign && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+              onClick={() => setSelectedCampaign(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 24 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.94, y: 16 }}
+                transition={{ type: 'spring', damping: 24, stiffness: 280 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden"
+              >
+                {/* Modal Header */}
+                <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 to-white flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase tracking-widest">Campaign #{selectedCampaign.id}</span>
+                    </div>
+                    <h3 className="text-lg font-extrabold text-slate-900 leading-tight">{selectedCampaign.title}</h3>
+                    <p className="text-xs text-slate-400 mt-1 font-medium">
+                      Dispatched on {new Date(selectedCampaign.sentAt).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedCampaign(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors cursor-pointer shrink-0 mt-0.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+                  {/* Message Body */}
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Campaign Message</p>
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                      {selectedCampaign.content}
+                    </div>
+                  </div>
+
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-center">
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Recipients</p>
+                      <p className="text-2xl font-black text-indigo-700 mt-0.5">{selectedCampaign.recipientCount}</p>
+                    </div>
+                    <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl text-center">
+                      <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Status</p>
+                      <p className="text-sm font-black text-emerald-700 mt-1">DISPATCHED ✓</p>
+                    </div>
+                  </div>
+
+                  {/* Recipient Email Tags */}
+                  {selectedCampaign.recipients && (
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Target Mailboxes</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCampaign.recipients.split(',').filter(Boolean).map((email, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-full text-[11px] font-semibold shadow-xs"
+                          >
+                            <svg className="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" /></svg>
+                            {email.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                  <button
+                    onClick={() => setSelectedCampaign(null)}
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-bold rounded-xl cursor-pointer transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* ── EDIT PRODUCT MODAL DIALOG ──────────── */}

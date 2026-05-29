@@ -11,6 +11,14 @@ export default function Profile() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   // Tab state: 'info' | 'addresses'
   const [activeTab, setActiveTab] = useState('info');
 
@@ -139,7 +147,7 @@ export default function Profile() {
           <div className="flex items-center justify-between mb-6">
             <motion.button
               whileTap={{ scale: 0.9 }}
-              onClick={() => navigate(-1)}
+              onClick={handleBack}
               className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/60 shadow-xs text-zinc-800 cursor-pointer"
             >
               <ArrowLeft className="w-5 h-5" />

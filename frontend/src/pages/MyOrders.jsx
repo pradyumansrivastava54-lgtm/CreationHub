@@ -1,21 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import API from '../services/api';
+import { HiArrowLeft } from 'react-icons/hi';
 import Navbar from '../components/Navbar';
 
 export default function MyOrders() {
   const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchMyOrders = async () => {
+  const fetchMyOrders = useCallback(async () => {
       setLoading(true);
       setError(null);
       try {
         const response = await API.get('/api/orders/my-orders');
-        // Safely fallback to empty array if response data is missing
         setOrders(response.data || []);
       } catch (err) {
         console.error('Failed to fetch order history:', err);
@@ -23,10 +31,11 @@ export default function MyOrders() {
       } finally {
         setLoading(false);
       }
-    };
+    }, []);
 
+  useEffect(() => {
     fetchMyOrders();
-  }, []);
+  }, [fetchMyOrders]);
 
   return (
     <div className="min-h-screen bg-[#FAF6F0] pb-24 sm:pb-8 flex flex-col font-sans">
@@ -35,9 +44,19 @@ export default function MyOrders() {
 
       {/* Content Area */}
       <main className="flex-grow w-full max-w-md mx-auto px-4 box-border md:max-w-5xl pt-3 pb-8">
-        <div className="mb-5">
-          <h1 className="text-2xl font-bold text-zinc-950 font-serif tracking-tight">Order History</h1>
-          <p className="text-xs text-zinc-500 mt-1">Review and track your previous transactions</p>
+        {/* Header Strip */}
+        <div className="flex items-center justify-between mb-5">
+          <button
+            onClick={handleBack}
+            className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/60 shadow-xs text-zinc-800 cursor-pointer hover:bg-zinc-50 transition-colors"
+          >
+            <HiArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-zinc-950 font-serif tracking-tight text-center">Order History</h1>
+            <p className="text-xs text-zinc-500 mt-0.5 text-center">Review and track your previous transactions</p>
+          </div>
+          <div className="w-10" />
         </div>
 
         {loading ? (
@@ -69,7 +88,7 @@ export default function MyOrders() {
           <div className="bg-surface-card border border-border p-8 rounded-2xl text-center shadow-lg">
             <p className="text-danger font-medium mb-4">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={fetchMyOrders}
               className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-bold cursor-pointer"
             >
               Retry
@@ -123,6 +142,26 @@ export default function MyOrders() {
                     ))}
                   </div>
                 </div>
+
+                {(() => {
+                  const subtotal = order.items?.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0) || 0;
+                  const deliveryFee = Number(order.totalAmount) - subtotal;
+                  return (
+                    <div className="pt-4 border-t border-dashed border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs font-semibold text-text-secondary">
+                      <div className="flex gap-4">
+                        <span>Subtotal: <strong className="text-text-primary">₹{subtotal.toFixed(2)}</strong></span>
+                        {deliveryFee > 0.01 && (
+                          <span>Delivery Fee: <strong className="text-text-primary">₹{deliveryFee.toFixed(2)}</strong></span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-indigo-650 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full uppercase tracking-wider">
+                          Status: {order.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Flipkart-Style Tracking Stepper */}
                 <div className="pt-6 border-t border-border mt-4">

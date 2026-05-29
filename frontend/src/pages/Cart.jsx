@@ -11,6 +11,14 @@ export default function Cart() {
   const { cartItems, updateQuantity, removeFromCart, totalCartItems } = useCart();
   const navigate = useNavigate();
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
 
@@ -39,7 +47,7 @@ export default function Cart() {
         <div className="flex items-center justify-between mb-5">
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/60 shadow-xs text-zinc-800 cursor-pointer"
           >
             <HiArrowLeft className="w-5 h-5" />

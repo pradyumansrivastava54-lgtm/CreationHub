@@ -99,6 +99,7 @@ public class OrderController {
         String username = authentication.getName();
         Long addressId = null;
         String paymentStatus = null;
+        java.math.BigDecimal deliveryFee = java.math.BigDecimal.ZERO;
         if (body != null) {
             if (body.get("addressId") != null) {
                 addressId = Long.valueOf(body.get("addressId").toString());
@@ -106,8 +107,11 @@ public class OrderController {
             if (body.get("paymentStatus") != null) {
                 paymentStatus = body.get("paymentStatus").toString();
             }
+            if (body.get("deliveryFee") != null) {
+                deliveryFee = new java.math.BigDecimal(body.get("deliveryFee").toString());
+            }
         }
-        Order order = orderService.placeOrder(username, addressId, paymentStatus);
+    Order order = orderService.placeOrder(username, addressId, paymentStatus, deliveryFee);
 
         try {
             notificationService.sendOrderConfirmationToUser(order.getUser(), order);

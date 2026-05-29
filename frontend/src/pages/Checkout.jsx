@@ -13,13 +13,22 @@ export default function Checkout() {
   const { fetchCart, cartItems } = useCart();
   const navigate = useNavigate();
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/cart');
+    }
+  };
+
   // Redirection guard
   useEffect(() => {
     if (!isAuthenticated) navigate('/login', { state: { from: '/checkout' } });
     if (cartItems.length === 0) navigate('/cart');
   }, [isAuthenticated, cartItems, navigate]);
 
-  const selectedOrderTotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  // Compute totals — these MUST match what the backend saves to DB
+  const selectedOrderTotal = cartItems.reduce((sum, item) => sum + (Number(item.product.price) * item.quantity), 0);
   const deliveryFee = selectedOrderTotal > 0 ? 30 : 0;
   const orderTotal = selectedOrderTotal + deliveryFee;
 
@@ -39,6 +48,7 @@ export default function Checkout() {
   // Transaction State
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showSuccessOrderModal, setShowSuccessOrderModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [receiptKey, setReceiptKey] = useState('');
 
@@ -137,25 +147,27 @@ export default function Checkout() {
         description: 'Premium Lifestyle Gear Purchase',
         order_id: razorpayOrderId,
         handler: async function (response) {
-          setIsProcessing(true);
+          setIsProcessing(false);
+          setShowSuccessOrderModal(true);
           try {
             // 3. Hit our /api/orders/place to place order, clear cart and mark PAID
+            // Pass deliveryFee so the backend can add it to the stored totalAmount
             const placeRes = await API.post('/api/orders/place', {
               addressId: selectedAddressId,
-              paymentStatus: 'PAID'
+              paymentStatus: 'PAID',
+              deliveryFee: deliveryFee
             });
 
             setReceiptKey(placeRes.data.razorpayOrderId || response.razorpay_order_id);
             setIsSuccess(true);
-            setIsProcessing(false);
             fetchCart();
 
             setTimeout(() => {
-              navigate('/order-success', { replace: true });
-            }, 2500);
+              navigate('/orders', { replace: true });
+            }, 4000);
 
           } catch (placeErr) {
-            setIsProcessing(false);
+            setShowSuccessOrderModal(false);
             setErrorMessage('Order placement failed: ' + (placeErr.response?.data?.message || placeErr.message));
           }
         },
@@ -175,6 +187,7 @@ export default function Checkout() {
 
       const rzp = new window.Razorpay(options);
       rzp.open();
+      setIsProcessing(false); // Hide the processing spinner as soon as Razorpay modal opens!
 
     } catch (err) {
       setIsProcessing(false);
@@ -182,7 +195,7 @@ export default function Checkout() {
     }
   };
 
-  if (cartItems.length === 0) return null;
+  if (cartItems.length === 0 && !showSuccessOrderModal) return null;
 
   return (
     <div className="min-h-screen bg-[#FAF6F0] pb-24 sm:pb-8 flex flex-col font-sans overflow-x-hidden">
@@ -194,7 +207,7 @@ export default function Checkout() {
         <div className="flex items-center justify-between mb-5">
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="w-10 h-10 rounded-full bg-white flex items-center justify-center border border-zinc-200/60 shadow-xs text-zinc-800 cursor-pointer"
           >
             <HiArrowLeft className="w-5 h-5" />
@@ -400,20 +413,45 @@ export default function Checkout() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isSuccess && (
+        {showSuccessOrderModal && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-white"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#FAF6F0]/95 backdrop-blur-md"
           >
-            <div className="text-center">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
-                <CheckCircle2 className="w-8 h-8" />
+            <div className="text-center p-8 max-w-md mx-auto">
+              <motion.div 
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", damping: 12 }}
+                className="w-20 h-20 bg-emerald-50 border-2 border-emerald-500/20 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_12px_40px_rgba(16,185,129,0.15)]"
+              >
+                <CheckCircle2 className="w-10 h-10" />
+              </motion.div>
+              <h2 className="text-2xl font-bold text-zinc-900 font-serif tracking-tight">Order Placed Successfully!</h2>
+              <p className="text-[13px] text-zinc-500 mt-3 max-w-sm mx-auto leading-relaxed animate-pulse">
+                Thank you for shopping with CreationHub! Your boutique selection is confirmed and preparing for shipment.
+              </p>
+              {receiptKey ? (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 inline-flex flex-col items-center gap-1.5 px-4 py-2 bg-white/60 border border-zinc-200/50 rounded-2xl shadow-xs"
+                >
+                  <span className="text-[9px] font-bold text-zinc-450 uppercase tracking-widest">Receipt ID</span>
+                  <span className="text-xs font-mono text-zinc-800 font-bold">{receiptKey}</span>
+                </motion.div>
+              ) : (
+                <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-white/40 border border-zinc-200/30 rounded-2xl">
+                  <div className="w-3.5 h-3.5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Securing Transaction...</span>
+                </div>
+              )}
+              <div className="mt-10 flex flex-col items-center gap-2">
+                <div className="w-6 h-6 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin" />
+                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Redirecting to boutique dashboard...</span>
               </div>
-              <h2 className="text-xl font-bold text-zinc-950 font-serif">Order Confirmed!</h2>
-              <p className="text-xs text-zinc-400 mt-1">Receipt ID: <span className="font-mono text-zinc-900">{receiptKey}</span></p>
-              <p className="text-[10px] text-zinc-400 mt-4">Redirecting to order dashboard...</p>
             </div>
           </motion.div>
         )}

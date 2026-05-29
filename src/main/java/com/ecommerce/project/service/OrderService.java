@@ -61,13 +61,14 @@ public class OrderService {
 
         // Verify stock one final time and compute total
         for (CartItem item : cartItems) {
-            Product product = item.getProduct();
-            if (item.getQuantity() > product.getStockQuantity()) {
-                throw new InsufficientStockException(product.getId(),
-                        "Product " + product.getName() + " does not have enough stock. Requested: " + item.getQuantity()
-                                + ", Available: " + product.getStockQuantity());
+            Product freshProduct = productRepository.findById(item.getProduct().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProduct().getId()));
+            
+            int requestedQuantity = item.getQuantity();
+            if (freshProduct.getStockQuantity() < requestedQuantity || freshProduct.getStockQuantity() == 0) {
+                throw new com.ecommerce.project.exception.ApiException("Inventory Error: Some items in your cart have gone out of stock. Please adjust your cart quantity.");
             }
-            BigDecimal itemTotal = product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            BigDecimal itemTotal = freshProduct.getPrice().multiply(BigDecimal.valueOf(requestedQuantity));
             totalAmount = totalAmount.add(itemTotal);
         }
 
@@ -288,7 +289,7 @@ public class OrderService {
     }
 
     @Transactional
-    public Order placeOrder(String username, Long addressId, String paymentStatus) {
+    public Order placeOrder(String username, Long addressId, String paymentStatus, java.math.BigDecimal deliveryFee) {
         // 1. Resolve the authenticated User entity
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
@@ -303,17 +304,23 @@ public class OrderService {
 
         // 3. Verify stock one final time and compute total
         for (CartItem item : cartItems) {
-            Product product = item.getProduct();
-            if (item.getQuantity() > product.getStockQuantity()) {
-                throw new InsufficientStockException(product.getId(),
-                        "Product " + product.getName() + " does not have enough stock. Requested: " + item.getQuantity()
-                                + ", Available: " + product.getStockQuantity());
+            Product freshProduct = productRepository.findById(item.getProduct().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProduct().getId()));
+            
+            int requestedQuantity = item.getQuantity();
+            if (freshProduct.getStockQuantity() < requestedQuantity || freshProduct.getStockQuantity() == 0) {
+                throw new com.ecommerce.project.exception.ApiException("Inventory Error: Some items in your cart have gone out of stock. Please adjust your cart quantity.");
             }
-            java.math.BigDecimal itemTotal = product.getPrice().multiply(java.math.BigDecimal.valueOf(item.getQuantity()));
+            java.math.BigDecimal itemTotal = freshProduct.getPrice().multiply(java.math.BigDecimal.valueOf(requestedQuantity));
             totalAmount = totalAmount.add(itemTotal);
         }
 
-        // 4. Create Order and generate distinct unique Order ID token
+        // 4. Add delivery fee to get the exact total the customer was charged
+        if (deliveryFee != null && deliveryFee.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            totalAmount = totalAmount.add(deliveryFee);
+        }
+
+        // 4b. Create Order and generate distinct unique Order ID token
         Order order = new Order(user, totalAmount, "PENDING");
         order.setOrderStatus("PLACED");
         if (paymentStatus != null) {
@@ -341,10 +348,11 @@ public class OrderService {
 
         // 6. Build OrderItems and deduct physical stock
         for (CartItem item : cartItems) {
-            Product product = item.getProduct();
-            product.setStockQuantity(product.getStockQuantity() - item.getQuantity());
-            productRepository.save(product);
-            OrderItem orderItem = new OrderItem(product, item.getQuantity(), product.getPrice());
+            Product freshProduct = productRepository.findById(item.getProduct().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProduct().getId()));
+            freshProduct.setStockQuantity(freshProduct.getStockQuantity() - item.getQuantity());
+            productRepository.save(freshProduct);
+            OrderItem orderItem = new OrderItem(freshProduct, item.getQuantity(), freshProduct.getPrice());
             order.addItem(orderItem);
         }
 

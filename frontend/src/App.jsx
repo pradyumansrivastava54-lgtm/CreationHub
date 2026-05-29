@@ -95,6 +95,10 @@ function AppRoutes() {
         element={<ProductDetails />}
       />
       <Route
+        path="/products/:id"
+        element={<ProductDetails />}
+      />
+      <Route
         path="/orders"
         element={
           <ProtectedRoute>

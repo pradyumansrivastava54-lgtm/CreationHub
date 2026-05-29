@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { Home, Heart, ShoppingBag, ClipboardList, Menu, X, MoreVertical, User, LogOut, Info, Search } from 'lucide-react';
 import { HiArrowLeft, HiOutlineCollection } from 'react-icons/hi';
+import API from '../services/api';
 
 export default function Navbar({ backToStore = false }) {
   const { user, logout, isAuthenticated } = useAuth();
@@ -14,6 +15,60 @@ export default function Navbar({ backToStore = false }) {
   const [wishlistCount, setWishlistCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopDropdownOpen, setDesktopDropdownOpen] = useState(false);
+
+  // Auto-suggestion state
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [inputValue, setInputValue] = useState(searchQuery || '');
+  const searchRef = useRef(null);
+
+  // Sync external search query updates
+  useEffect(() => {
+    setInputValue(searchQuery || '');
+  }, [searchQuery]);
+
+  // Click outside to close suggestion dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 300ms Debounced fetch suggestions
+  useEffect(() => {
+    if (inputValue.trim().length <= 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    setLoadingSuggestions(true);
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const res = await API.get('/api/public/products/search/suggestions', {
+          params: { query: inputValue }
+        });
+        setSuggestions(res.data || []);
+      } catch (err) {
+        console.error('Failed to fetch search suggestions:', err);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [inputValue]);
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInputValue(val);
+    setSearchQuery(val);
+    setShowDropdown(true);
+  };
 
   const updateWishlistCount = () => {
     const saved = localStorage.getItem('wishlist');
@@ -59,25 +114,62 @@ export default function Navbar({ backToStore = false }) {
 
             {/* Desktop Minimalist Search Bar component directly inside navigation row */}
             {location.pathname === '/' && (
-              <div className="hidden md:flex flex-1 max-w-md mx-auto px-4 relative">
+              <div ref={searchRef} className="hidden md:flex flex-1 max-w-md mx-auto px-4 relative">
                 <div className="flex items-center gap-2 w-full bg-zinc-50 border border-zinc-200/80 rounded-full px-4 py-2 hover:bg-white hover:border-zinc-300 transition-all duration-300">
                   <Search className="w-4 h-4 text-zinc-400 flex-shrink-0" />
                   <input
                     type="text"
                     placeholder="Search premium products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    onFocus={() => setShowDropdown(true)}
                     className="w-full bg-transparent border-0 outline-none text-zinc-800 placeholder-zinc-400 text-xs focus:ring-0 focus:outline-none"
                   />
-                  {searchQuery && (
+                  {inputValue && (
                     <button
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => {
+                        setInputValue('');
+                        setSearchQuery('');
+                        setSuggestions([]);
+                      }}
                       className="p-0.5 rounded-full text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 transition-all cursor-pointer flex-shrink-0"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   )}
                 </div>
+
+                {/* Dropdown Suggestions */}
+                {showDropdown && (suggestions.length > 0 || loadingSuggestions) && (
+                  <div className="absolute left-4 right-4 top-full mt-2 rounded-2xl border border-zinc-200 shadow-2xl max-h-60 overflow-y-auto bg-white/95 backdrop-blur-md z-50 py-2">
+                    {loadingSuggestions && suggestions.length === 0 ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="w-5 h-5 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : (
+                      suggestions.map((product) => (
+                        <div
+                          key={product.id}
+                          onClick={() => {
+                            navigate(`/products/${product.id}`);
+                            setShowDropdown(false);
+                          }}
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 transition-colors cursor-pointer"
+                        >
+                          <img
+                            src={product.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=40&q=80'}
+                            alt=""
+                            className="w-8 h-8 object-cover rounded-lg border border-zinc-200 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-zinc-800 truncate">{product.productName}</p>
+                            <p className="text-[10px] text-zinc-400 font-medium">₹{Number(product.price).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
